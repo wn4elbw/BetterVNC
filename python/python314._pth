@@ -1,0 +1,7 @@
+python314.zip
+.
+Lib
+Lib\site-packages
+
+# 启用 site 机制，使 pip 安装的第三方包（如 Pillow）可被导入
+import site

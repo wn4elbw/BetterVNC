@@ -10,18 +10,22 @@ webvnc.py - Windows 远程管理工具（单文件，自带 VNC Server）
   4. 基于 noVNC 的网页客户端，打开即自动连接（无点击连接）
 
 平台：Windows（共享真实屏幕并模拟键鼠输入）。
-     非 Windows 环境自动切换为虚拟屏幕演示模式（便于调试预览）。
+     非 Windows 环境自动切换为虚拟屏幕演示模式（便于调试预览）；
+     指定 --xdisplay 时抓取 Linux 虚拟桌面（Xvfb）并模拟键鼠输入。
 
 依赖：仅 Python 3 标准库 + Pillow（运行库）。
       pip install pillow
+      Linux 虚拟桌面模式额外需要：Xvfb、openbox、xdotool、xterm
 
-运行：python webvnc.py [--port 6080] [--vnc-port 5900] [--token xxx]
+运行：python webvnc.py [--port 6080] [--vnc-port 5900] [--token xxx] [--xdisplay :99]
+      Linux 虚拟桌面：bash run_desktop.sh
 
 访问：https://<本机IP>:6080/vnc.html
 """
 import argparse
 import base64
 import ctypes
+import errno
 import hashlib
 import io
 import json
@@ -103,8 +107,80 @@ MAX_FRAME = 65536
 IS_WINDOWS = (os.name == "nt")
 
 
+BASE = os.path.dirname(os.path.abspath(__file__))
+LOG_DIR = "log"  # 相对路径，main() 中先切换到脚本目录
+_log_lock = threading.Lock()
+
+
 def log(msg):
-    print(f"[webvnc] {msg}", flush=True)
+    """输出到控制台，并按日期保存到 log/ 目录（相对路径）"""
+    line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [webvnc] {msg}"
+    print(line, flush=True)
+    try:
+        with _log_lock:
+            os.makedirs(LOG_DIR, exist_ok=True)
+            path = os.path.join(
+                LOG_DIR, f"webvnc_{time.strftime('%Y-%m-%d')}.log")
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+    except OSError:
+        pass
+
+
+# Windows 下 subprocess 防止弹出控制台窗口的标志
+NO_WINDOW = 0x08000000 if IS_WINDOWS else 0
+
+
+# ---------------------------------------------------------------------------
+# 依赖自检：缺少 Pillow 时自动安装 pip + Pillow 并重启进程
+# ---------------------------------------------------------------------------
+def ensure_dependencies():
+    try:
+        import PIL  # noqa: F401
+        return
+    except ImportError:
+        pass
+
+    base = os.path.dirname(os.path.abspath(__file__))
+    py = sys.executable
+    log("未检测到运行库 Pillow，开始自动安装（需要联网）...")
+
+    def run_quiet(cmd):
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              creationflags=NO_WINDOW)
+
+    # 1. 确认 pip 可用，嵌入式 Python 首次运行需要先引导 pip
+    probe = run_quiet([py, "-m", "pip", "--version"])
+    if probe.returncode != 0:
+        get_pip = os.path.join(base, "get-pip.py")
+        if not os.path.exists(get_pip):
+            log("正在下载 get-pip.py ...")
+            try:
+                import urllib.request
+                urllib.request.urlretrieve(
+                    "https://bootstrap.pypa.io/get-pip.py", get_pip)
+            except Exception as exc:
+                log(f"下载 get-pip.py 失败: {exc}")
+                log("请手动将 get-pip.py 放入程序目录后重试")
+                sys.exit(1)
+        log("正在引导安装 pip ...")
+        res = run_quiet([py, get_pip, "--no-warn-script-location"])
+        if res.returncode != 0:
+            log(f"pip 安装失败: {(res.stderr or res.stdout or '').strip()}")
+            sys.exit(1)
+
+    # 2. 安装 Pillow
+    log("正在安装 Pillow ...")
+    res = run_quiet([py, "-m", "pip", "install", "--no-warn-script-location",
+                     "pillow"])
+    if res.returncode != 0:
+        log(f"Pillow 安装失败: {(res.stderr or res.stdout or '').strip()}")
+        sys.exit(1)
+
+    # 3. 重启自身，重新加载已安装的模块（相对路径启动）
+    log("Pillow 安装完成，正在重启服务...")
+    os.chdir(BASE)
+    os.execv(sys.executable, [sys.executable, "webvnc.py"] + sys.argv[1:])
 
 
 # ---------------------------------------------------------------------------
@@ -158,19 +234,34 @@ def send_frame(sock, opcode, payload=b""):
 # 屏幕抓取
 # ---------------------------------------------------------------------------
 class ScreenGrabber:
-    """Windows 抓真实屏幕；其他平台生成虚拟画面便于调试预览。"""
+    """Windows 抓真实屏幕；Linux 指定 --xdisplay 时抓 X 虚拟桌面；
+    否则生成虚拟画面便于调试预览。"""
 
-    def __init__(self):
+    def __init__(self, xdisplay=None):
         self._lock = threading.Lock()
         self._t0 = time.time()
-        self.virtual = (not IS_WINDOWS) or (Image is None)
+        self._xdisplay = xdisplay
+        if IS_WINDOWS and Image is not None:
+            self.virtual = False
+        elif xdisplay:
+            self.virtual = False
+        else:
+            self.virtual = True
 
     def grab(self):
         if self.virtual:
             return self._virtual_frame()
-        with self._lock:
-            from PIL import ImageGrab
-            return ImageGrab.grab()
+        from PIL import ImageGrab
+        if self._xdisplay:
+            img = ImageGrab.grab(xdisplay=self._xdisplay)
+        else:
+            img = ImageGrab.grab()
+        try:
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+        except Exception:
+            pass
+        return img
 
     def _virtual_frame(self):
         from PIL import ImageDraw as _Draw
@@ -262,9 +353,101 @@ class NullInput:
         pass
 
 
+# Linux X 虚拟桌面的键鼠映射（keysym -> xdotool 名称）
+_KEYSYM_X = {
+    0xFF08: "BackSpace", 0xFF09: "Tab", 0xFF0D: "Return", 0xFF1B: "Escape",
+    0xFF50: "Home", 0xFF51: "Left", 0xFF52: "Up", 0xFF53: "Right",
+    0xFF54: "Down", 0xFF55: "Page_Up", 0xFF56: "Page_Down", 0xFF57: "End",
+    0xFF63: "Insert", 0xFFFF: "Delete",
+    0xFFE1: "Shift_L", 0xFFE2: "Shift_R", 0xFFE3: "Control_L",
+    0xFFE4: "Control_R", 0xFFE9: "Alt_L", 0xFFEA: "Alt_R",
+    0xFFE7: "Super_L", 0xFFE8: "Super_R",
+    0x20: "space",
+    0x2C: "comma", 0x2D: "minus", 0x2E: "period", 0x2F: "slash",
+    0x3B: "semicolon", 0x27: "apostrophe", 0x5B: "bracketleft",
+    0x5C: "backslash", 0x5D: "bracketright", 0x60: "grave",
+    0x3D: "equal", 0x2B: "plus", 0x2A: "asterisk",
+}
+for _i in range(12):
+    _KEYSYM_X[0xFFBE + _i] = "F%d" % (_i + 1)
+
+
+def keysym_to_xdotool(keysym):
+    if keysym in _KEYSYM_X:
+        return _KEYSYM_X[keysym]
+    if 0x30 <= keysym <= 0x39 or 0x61 <= keysym <= 0x7A:
+        return chr(keysym)
+    return None
+
+
+class XInput:
+    """Linux X 虚拟桌面输入模拟（通过 xdotool，异步执行不阻塞 VNC 服务）"""
+
+    def __init__(self, xdisplay):
+        self._display = xdisplay
+        self._prev_buttons = 0
+        self._queue = []
+        self._latest_xy = None
+        self._cond = threading.Condition()
+        threading.Thread(target=self._worker, daemon=True).start()
+
+    def _run(self, args):
+        env = dict(os.environ)
+        env["DISPLAY"] = self._display
+        try:
+            subprocess.run(["xdotool"] + args, env=env,
+                           capture_output=True, timeout=5)
+        except Exception:
+            pass
+
+    def _worker(self):
+        while True:
+            with self._cond:
+                while not self._queue and self._latest_xy is None:
+                    self._cond.wait()
+                ops = list(self._queue)
+                self._queue.clear()
+                xy = self._latest_xy
+                self._latest_xy = None
+            if xy is not None:
+                self._run(["mousemove", "--sync", str(int(xy[0])), str(int(xy[1]))])
+            for op in ops:
+                self._run(op)
+
+    def pointer(self, x, y, mask):
+        with self._cond:
+            self._latest_xy = (int(x), int(y))
+            for btn, bit in ((1, 0x01), (2, 0x02), (3, 0x04)):
+                pressed = bool(mask & bit)
+                was = bool(self._prev_buttons & bit)
+                if pressed and not was:
+                    self._queue.append(["mousedown", str(btn)])
+                elif was and not pressed:
+                    self._queue.append(["mouseup", str(btn)])
+            if (mask & 0x08) and not (self._prev_buttons & 0x08):
+                self._queue.append(["click", "4"])
+            if (mask & 0x10) and not (self._prev_buttons & 0x10):
+                self._queue.append(["click", "5"])
+            self._prev_buttons = mask
+            self._cond.notify()
+
+    def key(self, keysym, down):
+        name = keysym_to_xdotool(keysym)
+        if name is None:
+            return
+        with self._cond:
+            self._queue.append([("keydown" if down else "keyup"), name])
+            self._cond.notify()
+
+
 # ---------------------------------------------------------------------------
 # VNC Server（RFB 003.008）
 # ---------------------------------------------------------------------------
+_SILENT_ERRNOS = {errno.EBADF}
+if os.name == "nt":
+    _SILENT_ERRNOS.update({10053, 10054})  # WSAECONNABORTED / WSAECONNRESET
+
+
 class VNCServer:
     """纯 Python RFB 服务器，无密码（SecurityType None），支持 Raw 编码。"""
 
@@ -294,6 +477,13 @@ class VNCServer:
     def _run_client(self, client):
         try:
             client.run()
+        except ConnectionError:
+            pass
+        except OSError as exc:
+            if (exc.errno not in _SILENT_ERRNOS
+                    and not isinstance(exc, (ConnectionResetError,
+                                             BrokenPipeError))):
+                log(f"VNC 客户端错误: {exc}")
         except Exception as exc:
             log(f"VNC 客户端错误: {exc}")
         finally:
@@ -303,6 +493,19 @@ class VNCServer:
                 pass
             if client in self._clients:
                 self._clients.remove(client)
+
+    def disconnect_all(self):
+        """断开全部活跃 VNC 客户端（网页端断开连接按钮）"""
+        for client in list(self._clients):
+            try:
+                client.close()
+            except Exception:
+                pass
+        self._clients.clear()
+
+    @property
+    def connected(self):
+        return bool(self._clients)
 
 
 class VNCClient:
@@ -361,7 +564,6 @@ class VNCClient:
                 n = struct.unpack("!H", self._recv(2))[0]
                 self._recv(n * 4)
             elif msg_type == 3:
-                self._recv(1)
                 incremental = self._recv(1)[0]
                 self._recv(8)
                 self._send_update(incremental)
@@ -373,17 +575,24 @@ class VNCClient:
             elif msg_type == 5:
                 mask = self._recv(1)[0]
                 x, y = struct.unpack("!HH", self._recv(4))
+                while len(self._buf) >= 6 and self._buf[0] == 5:
+                    nmask = self._buf[1]
+                    if nmask != mask:
+                        break
+                    x, y = struct.unpack("!HH", self._buf[2:6])
+                    self._buf = self._buf[6:]
                 self.input_sink.pointer(x, y, mask)
             elif msg_type == 6:
                 self._recv(3)
                 n = struct.unpack("!I", self._recv(4))[0]
                 self._recv(n)
             else:
+                log(f"VNC 客户端未知消息类型: {msg_type}")
                 break
 
     def _parse_pixel_format(self, fmt):
         (bpp, depth, big, true_colour, rmax, gmax, bmax,
-         rshift, gshift, bshift) = struct.unpack("!BBBBHHHBBB", fmt[:12])
+         rshift, gshift, bshift) = struct.unpack("!BBBBHHHBBB", fmt[:13])
         self.pixel_size = max(1, bpp // 8)
         self.client_fmt = (bpp, big, true_colour, rshift, gshift, bshift)
 
@@ -392,17 +601,37 @@ class VNCClient:
         fmt = getattr(self, "client_fmt", None)
         bpp, big, true_colour, rshift, gshift, bshift = (
             fmt if fmt else (32, 0, 1, 16, 8, 0))
-        if bpp == 32 and true_colour and not big and (rshift, gshift, bshift) == (16, 8, 0):
-            return img.tobytes("raw", "BGRX")
+        if bpp >= 24 and true_colour and not big:
+            if (rshift, gshift, bshift) == (16, 8, 0):
+                return img.tobytes("raw", "BGRX")
+            if (rshift, gshift, bshift) == (0, 8, 16):
+                return img.tobytes("raw", "RGBX")
         rgb = img.tobytes()
-        px = bytearray(len(rgb) * 4)
+        if bpp >= 16:
+            bytes_per = 2
+            rshift2 = rshift % 16
+            gshift2 = gshift % 16
+            bshift2 = bshift % 16
+            rmax = ((255 << rshift2) & 0xFFFF) >> rshift2
+            gmax = ((255 << gshift2) & 0xFFFF) >> gshift2
+            bmax = ((255 << bshift2) & 0xFFFF) >> bshift2
+        elif bpp >= 8:
+            bytes_per = 1
+        else:
+            bytes_per = 1
+        px = bytearray(len(rgb) // 3 * bytes_per)
+        out = 0
         for i in range(0, len(rgb), 3):
             r, g, b = rgb[i], rgb[i + 1], rgb[i + 2]
-            v = (r << rshift) | (g << gshift) | (b << bshift)
-            if big:
-                px[i:i + 3] = v.to_bytes(3, "big")
+            if bpp >= 16:
+                r5 = (r >> (8 - ((rmax.bit_length())))) if rmax < 256 else r
+                g6 = (g >> (8 - ((gmax.bit_length())))) if gmax < 256 else g
+                b5 = (b >> (8 - ((bmax.bit_length())))) if bmax < 256 else b
+                v = (r5 << rshift2) | (g6 << gshift2) | (b5 << bshift2)
+                px[out:out + bytes_per] = v.to_bytes(bytes_per, "big" if big else "little")
             else:
-                px[i:i + 3] = v.to_bytes(3, "little")
+                px[out] = r
+            out += bytes_per
         return bytes(px)
 
     def _send_update(self, incremental):
@@ -566,8 +795,23 @@ def parse_multipart(body, boundary):
                     kv = kv.strip()
                     if kv.lower().startswith("name="):
                         name = kv[5:].strip('"')
+                    elif kv.lower().startswith("filename*="):
+                        val = kv.split("=", 1)[1].strip().strip('"')
+                        if "'" in val:
+                            charset, _lang, pct = val.split("'", 2)
+                            try:
+                                from urllib.parse import unquote
+                                filename = unquote(pct, encoding=charset)
+                            except Exception:
+                                filename = pct
+                        else:
+                            filename = val
                     elif kv.lower().startswith("filename="):
-                        filename = kv[9:].strip('"')
+                        raw_val = kv[9:].strip('"')
+                        try:
+                            filename = raw_val.encode("latin-1").decode("utf-8")
+                        except (UnicodeEncodeError, UnicodeDecodeError):
+                            filename = raw_val
         if filename is not None:
             files.append({"name": name, "filename": filename, "content": content})
         elif name is not None:
@@ -576,6 +820,7 @@ def parse_multipart(body, boundary):
 
 
 def run_command(command, timeout=300):
+    """同步执行（GUI 等内部使用）；网页端使用下方的作业系统"""
     if not command:
         return {"exit_code": 0, "output": ""}
     if IS_WINDOWS:
@@ -583,17 +828,154 @@ def run_command(command, timeout=300):
     else:
         cmd = ["/bin/sh", "-c", command]
     try:
-        proc = subprocess.run(cmd, capture_output=True, timeout=timeout)
+        proc = subprocess.run(cmd, capture_output=True, timeout=timeout,
+                              creationflags=NO_WINDOW)
     except subprocess.TimeoutExpired:
         return {"exit_code": -1, "output": "[timeout]" }
     except Exception as exc:
         return {"exit_code": -1, "output": str(exc)}
     raw = proc.stdout + proc.stderr
+    return {"exit_code": proc.returncode, "output": decode_output(raw)}
+
+
+def decode_output(raw):
+    """命令输出解码：优先 UTF-8，失败依次尝试 GBK 等本地编码"""
     try:
-        text = raw.decode("utf-8")
+        return raw.decode("utf-8")
     except UnicodeDecodeError:
-        text = raw.decode(locale.getpreferredencoding(False), "replace")
-    return {"exit_code": proc.returncode, "output": text}
+        pass
+    for enc in ("gbk", "cp437"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", "replace")
+
+
+# ---------------------------------------------------------------------------
+# 命令作业系统：网页端提交命令立即返回作业号，前端轮询获取增量输出，
+# 避免 GUI/交互/长命令导致 HTTP 连接挂起（Failed to fetch）
+# ---------------------------------------------------------------------------
+_cmd_jobs = {}
+_cmd_jobs_lock = threading.Lock()
+_CMD_JOB_LIMIT = 30
+_CMD_JOB_TTL = 600
+
+
+class CmdJob:
+    def __init__(self, command, timeout):
+        import secrets
+        self.id = secrets.token_hex(8)
+        self.command = command
+        self.timeout = timeout
+        self.raw = bytearray()
+        self.text_len = 0
+        self.done = False
+        self.exit_code = None
+        self.started = time.time()
+        self.finished = 0
+        self.proc = None
+        self.killed = False
+
+    def text(self):
+        return decode_output(bytes(self.raw))
+
+
+def _cleanup_jobs():
+    now = time.time()
+    with _cmd_jobs_lock:
+        stale = [jid for jid, j in _cmd_jobs.items()
+                 if j.done and now - j.finished > _CMD_JOB_TTL]
+        for jid in stale:
+            _cmd_jobs.pop(jid, None)
+        while len(_cmd_jobs) > _CMD_JOB_LIMIT:
+            for jid in sorted(_cmd_jobs, key=lambda k: _cmd_jobs[k].started):
+                if _cmd_jobs[jid].done:
+                    _cmd_jobs.pop(jid, None)
+                    break
+            else:
+                break
+
+
+def start_cmd_job(command, timeout=300):
+    if not command:
+        return None
+    if IS_WINDOWS:
+        cmd = [os.environ.get("COMSPEC", "cmd.exe"), "/c", command]
+    else:
+        cmd = ["/bin/sh", "-c", command]
+    try:
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
+    except Exception as exc:
+        job = CmdJob(command, timeout)
+        job.done = True
+        job.exit_code = -1
+        job.finished = time.time()
+        job.raw.extend(str(exc).encode("utf-8", "replace"))
+        return job
+
+    job = CmdJob(command, timeout)
+    job.proc = proc
+    with _cmd_jobs_lock:
+        _cmd_jobs[job.id] = job
+    _cleanup_jobs()
+
+    def reader():
+        try:
+            while True:
+                chunk = proc.stdout.read(4096)
+                if not chunk:
+                    break
+                job.raw.extend(chunk)
+        except Exception:
+            pass
+        finally:
+            try:
+                proc.stdout.close()
+            except Exception:
+                pass
+            job.exit_code = proc.wait()
+            job.done = True
+            job.finished = time.time()
+
+    def watchdog():
+        timed_out = False
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            kill_job(job.id)
+        if timed_out or job.killed:
+            job.raw.extend(
+                "\n[webvnc] 命令已终止（超时或手动停止）\n".encode("utf-8"))
+
+    threading.Thread(target=reader, daemon=True).start()
+    threading.Thread(target=watchdog, daemon=True).start()
+    return job
+
+
+def kill_job(job_id):
+    with _cmd_jobs_lock:
+        job = _cmd_jobs.get(job_id)
+    if not job or not job.proc or job.done:
+        return False
+    job.killed = True
+    try:
+        if IS_WINDOWS:
+            # 连同子进程树一起终止
+            subprocess.run(
+                ["taskkill", "/T", "/F", "/PID", str(job.proc.pid)],
+                capture_output=True, creationflags=NO_WINDOW)
+        else:
+            job.proc.terminate()
+    except Exception:
+        try:
+            job.proc.kill()
+        except Exception:
+            pass
+    return True
 
 
 def system_info():
@@ -618,10 +1000,11 @@ def system_info():
 class WebHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "webvnc/1.0"
-    directory = os.path.dirname(os.path.abspath(__file__))
+    directory = "web"  # 相对路径，main() 已切换到脚本目录
     vnc_host = "127.0.0.1"
     vnc_port = 5900
     token = None
+    vnc_server = None
 
     # ---- 辅助 ----
     def _send_json(self, obj, code=200):
@@ -660,11 +1043,23 @@ class WebHandler(BaseHTTPRequestHandler):
             return self._fs_zip()
         if path == "/api/cmd":
             return self._send_json({"error": "use POST"}, 405)
+        if path == "/api/cmd/result":
+            return self._api_cmd_result()
+        if path == "/api/log/tail":
+            return self._api_log_tail()
+        if path == "/api/vnc/status":
+            srv = WebHandler.vnc_server
+            return self._send_json({
+                "connected": bool(srv and srv.connected),
+                "clients": len(srv._clients) if srv else 0,
+            })
+        if path == "/api/vnc/disconnect":
+            srv = WebHandler.vnc_server
+            if srv:
+                srv.disconnect_all()
+            return self._send_json({"ok": True})
         if path in ("/", ""):
-            self.send_response(302)
-            self.send_header("Location", "/vnc.html")
-            self.end_headers()
-            return
+            return self._serve_index()
         if not self._check_token():
             return self._send_json({"error": "forbidden"}, 403)
         self._serve_static()
@@ -673,6 +1068,8 @@ class WebHandler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path == "/api/cmd":
             return self._api_cmd()
+        if path == "/api/cmd/kill":
+            return self._api_cmd_kill()
         if path == "/api/fs/upload":
             return self._fs_upload()
         if path == "/api/fs/mkdir":
@@ -681,7 +1078,58 @@ class WebHandler(BaseHTTPRequestHandler):
             return self._fs_rename()
         if path == "/api/fs/move":
             return self._fs_move()
+        if path == "/api/fs/delete":
+            return self._fs_delete()
+        if path == "/api/vnc/disconnect":
+            srv = WebHandler.vnc_server
+            if srv:
+                srv.disconnect_all()
+            return self._send_json({"ok": True})
         return self._send_json({"error": "not found"}, 404)
+
+    # ---- 动态注入 vnc.html ----
+    # 访问根路径或 /vnc.html 时返回注入服务端配置后的调整页面，
+    # 保证打开即自动连接（无需手动填写 host/port/path）。
+    _index_cache = None  # (mtime_ns, size, body)
+
+    def _serve_index(self):
+        path = os.path.join(self.directory, "vnc.html")
+        try:
+            st = os.stat(path)
+        except OSError:
+            self.send_error(404)
+            return
+        cached = WebHandler._index_cache
+        if cached and cached[0] == st.st_mtime_ns and cached[1] == st.st_size:
+            body = cached[2]
+        else:
+            with open(path, "r", encoding="utf-8") as fh:
+                html = fh.read()
+            cfg = {
+                "path": "websockify",
+                "encrypt": isinstance(self.connection, ssl.SSLSocket),
+                "vnc_host": self.vnc_host,
+                "vnc_port": self.vnc_port,
+                "machine": socket.gethostname(),
+                "platform": sys.platform,
+                "windows": IS_WINDOWS,
+                "virtual": (not IS_WINDOWS) or (Image is None),
+                "auth": bool(self.token),
+            }
+            inject = "<script>window.__WEBVNC__ = %s;</script>" % json.dumps(
+                cfg, ensure_ascii=False)
+            if "</head>" in html:
+                html = html.replace("</head>", inject + "\n</head>", 1)
+            else:
+                html += inject
+            body = html.encode("utf-8")
+            WebHandler._index_cache = (st.st_mtime_ns, st.st_size, body)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(body)
 
     # ---- 静态文件 ----
     def _serve_static(self):
@@ -696,6 +1144,8 @@ class WebHandler(BaseHTTPRequestHandler):
         if not os.path.isfile(full):
             self.send_error(404)
             return
+        if rel == "vnc.html":
+            return self._serve_index()
         ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
         size = os.path.getsize(full)
         self.send_response(200)
@@ -835,7 +1285,33 @@ class WebHandler(BaseHTTPRequestHandler):
                 return self._send_json({"error": str(exc)}, 500)
         return self._send_json({"ok": True, "moved": moved})
 
-    # ---- 命令执行 ----
+    def _fs_delete(self):
+        if not self._check_token():
+            return self._send_json({"error": "forbidden"}, 403)
+        try:
+            data = json.loads(self._read_body() or b"{}")
+        except json.JSONDecodeError:
+            return self._send_json({"error": "bad json"}, 400)
+        paths = data.get("paths", [])
+        if not paths:
+            return self._send_json({"error": "missing paths"}, 400)
+        deleted = []
+        for p in paths:
+            full = _normalize(p)
+            if not os.path.exists(full):
+                continue
+            try:
+                if os.path.isdir(full) and not os.path.islink(full):
+                    shutil.rmtree(full)
+                else:
+                    os.remove(full)
+                deleted.append(p)
+            except OSError as exc:
+                return self._send_json(
+                    {"error": str(exc), "deleted": deleted}, 500)
+        return self._send_json({"ok": True, "deleted": deleted})
+
+    # ---- 命令执行（作业 + 轮询，避免长命令挂起连接） ----
     def _api_cmd(self):
         if not self._check_token():
             return self._send_json({"error": "forbidden"}, 403)
@@ -845,7 +1321,87 @@ class WebHandler(BaseHTTPRequestHandler):
             return self._send_json({"error": "bad json"}, 400)
         command = data.get("command", "")
         timeout = int(data.get("timeout", 300))
-        return self._send_json(run_command(command, timeout))
+        if not command:
+            return self._send_json({"error": "missing command"}, 400)
+        job = start_cmd_job(command, timeout)
+        if job is None:
+            return self._send_json({"error": "empty command"}, 400)
+        return self._send_json({"job": job.id})
+
+    def _api_cmd_result(self):
+        if not self._check_token():
+            return self._send_json({"error": "forbidden"}, 403)
+        job_id = self._get_query("id", "")
+        try:
+            seq = int(self._get_query("seq", "0"))
+        except ValueError:
+            seq = 0
+        with _cmd_jobs_lock:
+            job = _cmd_jobs.get(job_id)
+        if not job:
+            return self._send_json({"error": "job not found"}, 404)
+        text = job.text()
+        return self._send_json({
+            "output": text[seq:],
+            "total": len(text),
+            "done": job.done,
+            "exit_code": job.exit_code,
+        })
+
+    def _api_cmd_kill(self):
+        if not self._check_token():
+            return self._send_json({"error": "forbidden"}, 403)
+        try:
+            data = json.loads(self._read_body() or b"{}")
+        except json.JSONDecodeError:
+            return self._send_json({"error": "bad json"}, 400)
+        job_id = data.get("id", "")
+        with _cmd_jobs_lock:
+            job = _cmd_jobs.get(job_id)
+        if not job:
+            return self._send_json({"error": "job not found"}, 404)
+        kill_job(job_id)
+        return self._send_json({"ok": True})
+
+    # ---- 服务端日志 ----
+    def _api_log_tail(self):
+        if not self._check_token():
+            return self._send_json({"error": "forbidden"}, 403)
+        try:
+            start = int(self._get_query("start", "-1"))
+        except ValueError:
+            start = -1
+        try:
+            lines = int(self._get_query("lines", "300"))
+        except ValueError:
+            lines = 300
+        lines = max(1, min(lines, 2000))
+        try:
+            names = sorted(
+                n for n in os.listdir(LOG_DIR)
+                if n.startswith("webvnc_") and n.endswith(".log"))
+        except OSError:
+            names = []
+        if not names:
+            return self._send_json({"file": "", "start": 0, "next": 0, "lines": []})
+        newest = names[-1]
+        try:
+            with open(os.path.join(LOG_DIR, newest), "r",
+                      encoding="utf-8", errors="replace") as fh:
+                all_lines = fh.readlines()
+        except OSError:
+            all_lines = []
+        if start < 0:
+            idx0 = max(0, len(all_lines) - lines)
+        else:
+            idx0 = min(start, len(all_lines))
+        tail = all_lines[idx0:]
+        return self._send_json({
+            "file": newest,
+            "start": idx0,
+            "next": len(all_lines),
+            "lines": [l.rstrip("\r\n") for l in tail],
+        })
 
     # ---- WebSocket 代理 ----
     def _handle_websocket(self):
@@ -937,6 +1493,13 @@ def ensure_cert_files(cert_path, key_path):
 
 
 def main():
+    # Windows 控制台默认 GBK，强制 UTF-8 输出避免中文日志乱码
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
     ap = argparse.ArgumentParser(
         description="webvnc - Windows 远程管理工具（VNC + HTTPS 文件管理 + 终端）")
     ap.add_argument("--host", default="0.0.0.0", help="Web 监听地址（默认 0.0.0.0）")
@@ -945,18 +1508,33 @@ def main():
     ap.add_argument("--vnc-port", type=int, default=5900, help="VNC 端口（默认 5900）")
     ap.add_argument("--token", default="", help="访问令牌（可选，保护 API）")
     ap.add_argument("--no-https", action="store_true", help="使用 HTTP 而非 HTTPS")
+    ap.add_argument("--xdisplay", default="",
+                    help="Linux 虚拟桌面 X display（如 :99），抓取真实 X 桌面并模拟输入")
     args = ap.parse_args()
 
+    # 一律使用相对路径：先切换到脚本所在目录
+    os.chdir(BASE)
+
+    # 依赖自检：缺少 Pillow 时自动安装并重启进程
+    ensure_dependencies()
+
     if not IS_WINDOWS:
-        log("非 Windows 平台：启用虚拟屏幕演示模式（键鼠输入不可用）")
+        if args.xdisplay:
+            log(f"Linux 虚拟桌面模式：抓取 X display {args.xdisplay}（键鼠输入可用）")
+        else:
+            log("非 Windows 平台：启用虚拟屏幕演示模式（键鼠输入不可用）")
 
-    grabber = ScreenGrabber()
-    input_sink = WindowsInput() if IS_WINDOWS else NullInput()
+    grabber = ScreenGrabber(args.xdisplay or None)
+    if IS_WINDOWS:
+        input_sink = WindowsInput()
+    elif args.xdisplay:
+        input_sink = XInput(args.xdisplay)
+    else:
+        input_sink = NullInput()
 
-    vnc_thread = threading.Thread(
-        target=lambda: VNCServer(args.vnc_host, args.vnc_port,
-                                 grabber, input_sink).serve_forever(),
-        daemon=True)
+    vnc_srv = VNCServer(args.vnc_host, args.vnc_port, grabber, input_sink)
+    WebHandler.vnc_server = vnc_srv
+    vnc_thread = threading.Thread(target=vnc_srv.serve_forever, daemon=True)
     vnc_thread.start()
     time.sleep(0.3)
 
@@ -966,9 +1544,8 @@ def main():
 
     httpd = ThreadingHTTPServer((args.host, args.port), WebHandler)
     if not args.no_https:
-        base = os.path.dirname(os.path.abspath(__file__))
-        cert_path = os.path.join(base, "cert.pem")
-        key_path = os.path.join(base, "key.pem")
+        cert_path = "cert.pem"
+        key_path = "key.pem"
         ensure_cert_files(cert_path, key_path)
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(cert_path, key_path)

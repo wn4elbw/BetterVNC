@@ -188,3 +188,12 @@ recordings
 *.swp
 *~
 noVNC-*.tgz
+
+# 运行时生成文件
+/log/
+/cert.pem
+/key.pem
+/get-pip.py
+
+# 内置嵌入式 Python 运行环境（python/ 目录需要完整入库）
+!python/**
