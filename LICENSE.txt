@@ -1,0 +1,54 @@
+# 许可证声明
+
+## noVNC（上游前端）
+
+本项目前端基于 noVNC 构建。noVNC 版权归 The noVNC authors（见本目录 AUTHORS 文件），版权所有 © 2022 The noVNC authors。
+
+noVNC 核心库文件以 MPL 2.0（Mozilla Public License 2.0）许可分发。noVNC 核心库由完整运行 noVNC 所需的 JavaScript 代码构成，包括（但不限于）：
+
+    core/**/*.js
+    app/*.js
+    test/playback.js
+
+随 noVNC 源码发行版（或仓库）包含的 HTML、CSS、字体与图片文件不属于 noVNC 核心库，采用更宽松的许可证分发，以方便将 noVNC 集成到现有网站与 Web 应用中。上述文件按如下方式许可：
+
+    *.html                     ：2-Clause BSD 许可证
+
+    app/styles/*.css           ：2-Clause BSD 许可证
+
+    app/styles/Orbitron*       ：SIL Open Font License 1.1
+                                 （版权所有 © 2009 Matt McInerney）
+
+    app/images/                ：Creative Commons Attribution-ShareAlike
+                                 http://creativecommons.org/licenses/by-sa/3.0/
+
+noVNC 的部分片段版权归其各自的作者所有，请参阅各源文件头部或 noVNC 提交历史：https://github.com/novnc/noVNC/commits/master
+
+以下文件与项目已并入 noVNC 核心库，其原始许可证如下（均为 MPL 2.0 兼容）：
+
+    core/base64.js          ：MPL 2.0
+
+    core/des.js             ：多种 BSD 风格许可证
+
+    vendor/pako/            ：MIT
+
+未提及的其他文件通常在文件头部带有版权/许可证声明。noVNC 的默认许可证为 MPL-2.0。
+
+noVNC 许可证全文见：
+
+    docs/LICENSE.MPL-2.0
+    docs/LICENSE.OFL-1.1
+    docs/LICENSE.BSD-3-Clause（New BSD）
+    docs/LICENSE.BSD-2-Clause（Simplified BSD / FreeBSD）
+    vendor/pako/LICENSE（MIT）
+
+或通过以下链接获取：
+
+    http://www.mozilla.org/MPL/2.0/
+    http://scripts.sil.org/OFL
+    http://en.wikipedia.org/wiki/BSD_licenses
+    https://opensource.org/licenses/MIT
+
+## 本项目新增代码
+
+- `webvnc.py`：本项目新增代码（VNC Server、HTTPS 服务、文件管理与命令执行）。
