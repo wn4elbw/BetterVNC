@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh_CN" class="noVNC_loading">
+<head>
+
+    <!--
+    webvnc 主界面：四象限十字布局
+      一象限（右上，最大）：远程屏幕 + 缩放/全屏浮动按钮
+      二象限（左上，细高）：文件树（行内操作按钮 + 底部新建/上传/zip）
+      三象限（左下，最小）：左栏分类 + 右侧内容（noVNC 面板 + 主题设置）
+      四象限（右下，扁平）：命令行 + 服务端日志
+
+    基于 noVNC（MPL 2.0 / 2-Clause BSD，见 LICENSE.txt）
+    -->
+
+    <title>webvnc</title>
+
+    <link rel="icon" type="image/x-icon" href="app/images/icons/novnc.ico">
+    <meta charset="utf-8">
+    <meta name="theme-color" content="#313131">
+
+    <!-- Apple iOS Safari settings -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- @2x -->
+    <link rel="apple-touch-icon" sizes="40x40" type="image/png" href="app/images/icons/novnc-ios-40.png">
+    <link rel="apple-touch-icon" sizes="58x58" type="image/png" href="app/images/icons/novnc-ios-58.png">
+    <link rel="apple-touch-icon" sizes="80x80" type="image/png" href="app/images/icons/novnc-ios-80.png">
+    <link rel="apple-touch-icon" sizes="120x120" type="image/png" href="app/images/icons/novnc-ios-120.png">
+    <link rel="apple-touch-icon" sizes="152x152" type="image/png" href="app/images/icons/novnc-ios-152.png">
+    <link rel="apple-touch-icon" sizes="167x167" type="image/png" href="app/images/icons/novnc-ios-167.png">
+    <!-- @3x -->
+    <link rel="apple-touch-icon" sizes="60x60" type="image/png" href="app/images/icons/novnc-ios-60.png">
+    <link rel="apple-touch-icon" sizes="87x87" type="image/png" href="app/images/icons/novnc-ios-87.png">
+    <link rel="apple-touch-icon" sizes="120x120" type="image/png" href="app/images/icons/novnc-ios-120.png">
+    <link rel="apple-touch-icon" sizes="180x180" type="image/png" href="app/images/icons/novnc-ios-180.png">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="app/styles/constants.css">
+    <link rel="stylesheet" href="app/styles/base.css">
+    <link rel="stylesheet" href="app/styles/input.css">
+    <link rel="stylesheet" href="app/styles/panels.css">
+
+    <!-- Images that will later appear via CSS -->
+    <link rel="preload" as="image" href="app/images/info.svg">
+    <link rel="preload" as="image" href="app/images/error.svg">
+    <link rel="preload" as="image" href="app/images/warning.svg">
+
+    <script type="module" crossorigin="anonymous" src="app/error-handler.js"></script>
+
+    <script type="module">
+        import UI from "./app/ui.js";
+        import * as Log from './core/util/logging.js';
+
+        let response;
+
+        let defaults = {};
+        let mandatory = {};
+
+        try {
+            response = await fetch('./defaults.json');
+            if (!response.ok) {
+                throw Error("" + response.status + " " + response.statusText);
+            }
+
+            defaults = await response.json();
+        } catch (err) {
+            Log.Error("Couldn't fetch defaults.json: " + err);
+        }
+
+        try {
+            response = await fetch('./mandatory.json');
+            if (!response.ok) {
+                throw Error("" + response.status + " " + response.statusText);
+            }
+
+            mandatory = await response.json();
+        } catch (err) {
+            Log.Error("Couldn't fetch mandatory.json: " + err);
+        }
+
+        // 服务端注入的连接配置（访问 6080 时由 webvnc.py 自动填充）
+        if (window.__WEBVNC__) {
+            const s = window.__WEBVNC__;
+            if (s.path !== undefined) { defaults.path = s.path; }
+            if (s.encrypt !== undefined) { defaults.encrypt = s.encrypt; }
+            defaults.host = location.hostname;
+            defaults.port = location.port || (s.encrypt ? "443" : "80");
+            if (s.machine) { document.title = "webvnc - " + s.machine; }
+        }
+
+        // 暴露给普通脚本（webvnc.js）用于连接/断开控制
+        window.UI = UI;
+
+        UI.start({ settings: { defaults: defaults,
+                               mandatory: mandatory } });
+    </script>
+</head>
+
+<body>
+
+    <div id="noVNC_fallback_error" class="noVNC_center">
+        <div>
+            <div>noVNC encountered an error:</div>
+            <br>
+            <div id="noVNC_fallback_errormsg"></div>
+        </div>
+    </div>
+
+    <!-- Status dialog -->
+    <div id="noVNC_status" style="display:none !important"></div>
+
+    <!-- Server key verification dialog -->
+    <div class="noVNC_center noVNC_connect_layer">
+    <div id="noVNC_verify_server_dlg" class="noVNC_panel"><form>
+        <div class="noVNC_heading">
+            Server identity
+        </div>
+        <div>
+            The server has provided the following identifying information:
+        </div>
+        <div id="noVNC_fingerprint_block">
+            Fingerprint:
+            <span id="noVNC_fingerprint"></span>
+        </div>
+        <div>
+            Please verify that the information is correct and press
+            "Approve". Otherwise press "Reject".
+        </div>
+        <div class="button_row">
+            <input id="noVNC_approve_server_button" type="submit" value="Approve">
+            <input id="noVNC_reject_server_button" type="button" value="Reject">
+        </div>
+    </form></div>
+    </div>
+
+    <!-- Password dialog -->
+    <div class="noVNC_center noVNC_connect_layer">
+    <div id="noVNC_credentials_dlg" class="noVNC_panel"><form>
+        <div class="noVNC_heading">
+            Credentials
+        </div>
+        <div id="noVNC_username_block">
+            <label for="noVNC_username_input">Username:</label>
+            <input id="noVNC_username_input">
+        </div>
+        <div id="noVNC_password_block">
+            <label for="noVNC_password_input">Password:</label>
+            <input id="noVNC_password_input" type="password">
+        </div>
+        <div class="button_row">
+            <input id="noVNC_credentials_button" type="submit" value="Send credentials">
+        </div>
+    </form></div>
+    </div>
+
+    <!-- Transition screens -->
+    <div id="noVNC_transition" style="display:none !important">
+        <div id="noVNC_transition_text"></div>
+        <div>
+        <input type="button" id="noVNC_cancel_reconnect_button" value="Cancel">
+        </div>
+        <div class="noVNC_spinner"></div>
+    </div>
+
+    <!-- ===== 四象限十字布局 ===== -->
+    <div id="webvnc_layout"
+         style="position:relative;width:100vw;height:100vh;overflow:hidden">
+
+        <!-- 二象限（左上）：文件树 -->
+        <div id="q_file"
+             style="position:absolute;left:0;top:0;width:340px;bottom:230px;display:flex;flex-direction:column;background:#2b2e33;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:13px"
+             data-th="background:bg;color:fg">
+            <div class="panel_header"
+                 style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:#33373d;color:#ffffff;font-weight:600;border-bottom:1px solid #626a76;user-select:none"
+                 data-th="background:panel;color:fg;border-color:border">
+                <span style="flex:1">文件管理</span>
+                <button class="hdr_btn" id="fm_refresh_btn" title="刷新"
+                        style="background:transparent;border:none;color:#ffffff;font-size:13px;cursor:pointer;padding:0 3px;font-family:inherit"
+                        data-th="color:fg">&#8635;</button>
+            </div>
+            <div class="fm_path"
+                 style="display:flex;align-items:center;gap:1px;padding:2px 4px;border-bottom:1px solid #626a76;background:#2b2e33;color:#ffffff"
+                 data-th="background:bg;color:fg;border-color:border">
+                <button class="path_btn" id="fm_home_btn" title="根目录/驱动器"
+                        style="background:transparent;border:none;border-radius:3px;cursor:pointer;font-size:12px;padding:0 1px;color:#ffffff;font-family:inherit;line-height:1.2"
+                        data-th="color:fg">&#127968;</button>
+                <button class="path_btn" id="fm_up_btn" title="上级目录"
+                        style="background:transparent;border:none;border-radius:3px;cursor:pointer;font-size:12px;padding:0 1px;color:#ffffff;font-family:inherit;line-height:1.2"
+                        data-th="color:fg">&#8592;</button>
+                <span id="fm_path_text"
+                      style="flex:1;word-break:break-all;font-family:Consolas,monospace;font-size:12px;color:#1c1f23;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                      data-th="color:fg"></span>
+            </div>
+            <div class="fm_prompt" id="fm_prompt"
+                 style="display:none;position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);flex-direction:column;gap:8px;padding:14px 16px;background:#2b2e33;color:#ffffff;border:1px solid #636a75;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.35);z-index:2020;font-family:'Segoe UI',Arial,sans-serif;font-size:13px;min-width:280px"
+                 data-th="background:bg;color:fg;border-color:accent">
+                <span id="fm_prompt_label"
+                      style="color:#ffffff;font-size:13px"
+                      data-th="color:fg"></span>
+                <input id="fm_prompt_input" type="text"
+                       style="width:100%;background:#33373d;border:1px solid #4a4e56;color:#ffffff;border-radius:3px;padding:5px 8px;font-size:13px;outline:none;font-family:inherit"
+                       data-th="background:panel;color:fg;border-color:input">
+                <div style="display:flex;justify-content:flex-end;gap:8px">
+                    <button id="fm_prompt_ok"
+                            style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 14px;font-size:12px;cursor:pointer;font-family:inherit"
+                            data-th="background:accent;color:accentfg">确定</button>
+                    <button id="fm_prompt_cancel"
+                            style="background:transparent;border:1px solid #636a75;color:#ffffff;border-radius:3px;padding:3px 14px;font-size:12px;cursor:pointer;font-family:inherit"
+                            data-th="border-color:accent;color:fg">取消</button>
+                </div>
+            </div>
+            <div class="fm_tree" id="fm_tree"
+                 style="flex:1;overflow-y:auto;overflow-x:hidden;padding:2px 0;min-height:0"></div>
+            <div class="fm_status" id="fm_status"
+                 style="padding:3px 8px;border-top:1px solid #626a76;color:#b6bac2;font-size:11px;background:#2b2e33;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                 data-th="background:bg;color:muted;border-color:border"></div>
+            <div class="fm_bottom"
+                 style="display:flex;gap:4px;padding:4px 8px 12px;border-top:1px solid #626a76;background:#2b2e33"
+                 data-th="background:bg;border-color:border">
+                <button id="fm_mkdir_btn" title="新建文件夹"
+                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
+                        data-th="background:accent;color:accentfg">&#43;</button>
+                <button id="fm_upload_btn" title="上传文件"
+                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
+                        data-th="background:accent;color:accentfg">&#8593;</button>
+                <button id="fm_zip_btn" title="打包多选项目下载 zip"
+                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
+                        data-th="background:accent;color:accentfg">&#8681;</button>
+            </div>
+            <input type="file" id="fm_file_input" multiple hidden>
+        </div>
+
+        <!-- 垂直分割条（固定） -->
+        <div id="div_v"
+             style="position:absolute;left:340px;top:0;width:6px;bottom:230px;background:#3d4149;pointer-events:none"
+             data-th="background:bar"></div>
+
+        <!-- 一象限（右上）：远程屏幕（预览框，样式见 panels.css） -->
+        <div id="q_screen">
+            <!-- This is where the RFB elements will attach -->
+            <div id="noVNC_container">
+                <textarea id="noVNC_keyboardinput" autocapitalize="off"
+                    autocomplete="off" spellcheck="false" tabindex="-1"></textarea>
+            </div>
+            <div id="screen_tools">
+                <button id="st_page_fs_btn" title="网页全屏（整个网页进入浏览器全屏）">网页全屏</button>
+                <button id="st_full_page_btn" title="全屏网页（屏幕区铺满浏览器窗口）">全屏网页</button>
+            </div>
+        </div>
+
+        <!-- 水平分割条（固定） -->
+        <div id="div_h"
+             style="position:absolute;left:0;right:0;top:calc(100% - 236px);height:6px;background:#3d4149;pointer-events:none"
+             data-th="background:bar"></div>
+
+        <!-- 三象限（左下）：左栏分类 + 右侧内容 -->
+        <div id="q_ctrl"
+             style="position:absolute;left:0;bottom:0;width:340px;height:230px;display:flex;overflow:hidden;background:#23252a"
+             data-th="background:nav">
+
+            <!-- noVNC 需要的隐藏外壳与按钮（勿删，ID 被 ui.js 引用） -->
+            <div id="noVNC_control_bar_anchor" style="display:none">
+            <div id="noVNC_control_bar">
+            <div id="noVNC_control_bar_handle"><div></div></div>
+                <input type="image" src="app/images/power.svg" id="noVNC_power_button">
+                <input type="image" src="app/images/clipboard.svg" id="noVNC_clipboard_button">
+                <input type="image" src="app/images/settings.svg" id="noVNC_settings_button">
+            </div>
+            </div>
+
+            <!-- 已移除分类的按钮（保留 ID 供 ui.js 绑定，隐藏） -->
+            <div style="display:none">
+                <input type="image" alt="Keyboard" src="app/images/keyboard.svg"
+                       id="noVNC_keyboard_button" class="noVNC_button">
+                <input type="image" alt="Extra keys" src="app/images/toggleextrakeys.svg"
+                       id="noVNC_toggle_extra_keys_button" class="noVNC_button">
+                <div id="noVNC_modifiers" class="noVNC_panel">
+                    <input type="image" alt="Ctrl" src="app/images/ctrl.svg"
+                        id="noVNC_toggle_ctrl_button" class="noVNC_button">
+                    <input type="image" alt="Alt" src="app/images/alt.svg"
+                        id="noVNC_toggle_alt_button" class="noVNC_button">
+                    <input type="image" alt="Windows" src="app/images/windows.svg"
+                        id="noVNC_toggle_windows_button" class="noVNC_button">
+                    <input type="image" alt="Tab" src="app/images/tab.svg"
+                        id="noVNC_send_tab_button" class="noVNC_button">
+                    <input type="image" alt="Esc" src="app/images/esc.svg"
+                        id="noVNC_send_esc_button" class="noVNC_button">
+                    <input type="image" alt="Ctrl+Alt+Del" src="app/images/ctrlaltdel.svg"
+                        id="noVNC_send_ctrl_alt_del_button" class="noVNC_button">
+                </div>
+                <input type="image" alt="Drag" src="app/images/drag.svg"
+                    id="noVNC_view_drag_button" class="noVNC_button">
+                <input type="image" alt="Full screen" src="app/images/fullscreen.svg"
+                    id="noVNC_fullscreen_button" class="noVNC_button">
+                <input type="image" alt="Disconnect" src="app/images/disconnect.svg"
+                    id="noVNC_disconnect_button" class="noVNC_button">
+            </div>
+
+            <!-- 左栏：调整类型 -->
+            <div id="q3_nav"
+                 style="flex:0 0 auto;width:88px;display:flex;flex-direction:column;gap:2px;padding:4px;overflow-y:auto;border-right:1px solid #626a76;background:#23252a"
+                 data-th="background:nav;border-color:border">
+                <button class="q3_nav_btn active" data-pane="zoom"
+                        style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
+                        data-th="color:navfg">&#9974; 缩放</button>
+                <button class="q3_nav_btn" data-pane="port"
+                        style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
+                        data-th="color:navfg">&#128274; 端口</button>
+                <button class="q3_nav_btn" data-pane="conn"
+                        style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
+                        data-th="color:navfg">&#128279; 连接</button>
+                <button class="q3_nav_btn" data-pane="theme"
+                        style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
+                        data-th="color:navfg">&#127912; 主题</button>
+            </div>
+
+            <!-- 右侧：显示区域 -->
+            <div id="q3_content"
+                 style="flex:0 0 auto;width:calc(100% - 89px);min-width:0;overflow-y:auto;padding:6px;color:#ffffff"
+                 data-th="color:fg">
+
+                <div class="q3_pane active" data-pane="zoom">
+                    <div id="zoom_panel" style="font-size:13px;font-family:inherit">
+                        <div class="zoom_hd"
+                             style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #626a76;color:#ffffff"
+                             data-th="color:fg;border-color:border">缩放调整</div>
+                        <div class="zoom_row" style="margin-bottom:8px">屏幕缩放模式</div>
+                        <div class="zoom_btns"
+                             style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:10px">
+                            <button class="zoom_btn" data-mode="off" title="原始尺寸，不缩放"
+                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"
+                                    data-th="background:panel;color:fg;border-color:input">原始</button>
+                            <button class="zoom_btn" data-mode="scale" title="画面缩放适配屏幕区"
+                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"
+                                    data-th="background:panel;color:fg;border-color:input">适配</button>
+                            <button class="zoom_btn" data-mode="remote" title="调整远程分辨率适配窗口"
+                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"
+                                    data-th="background:panel;color:fg;border-color:input">远程</button>
+                        </div>
+                        <div class="zoom_hint"
+                             style="color:#b6bac2;font-size:12px;line-height:1.6"
+                             data-th="color:muted">适配：画面自动缩放至窗口大小<br>远程：调整远程桌面分辨率适配窗口</div>
+                    </div>
+                </div>
+
+                <div class="q3_pane" data-pane="conn">
+                    <div id="conn_panel" style="font-size:11px;font-family:inherit">
+                        <div class="conn_hd"
+                             style="font-weight:600;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #626a76;color:#ffffff;font-size:12px"
+                             data-th="color:fg;border-color:border">连接信息</div>
+                        <div class="conn_row" style="display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #626a76"
+                             data-th="border-color:border"><span style="flex:0 0 34px;color:#b6bac2" data-th="color:muted">服务端</span><b style="flex:1;min-width:0;font-weight:600;word-break:break-all" id="conn_host" data-th="color:fg">-</b></div>
+                        <div class="conn_row" style="display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #626a76"
+                             data-th="border-color:border"><span style="flex:0 0 34px;color:#b6bac2" data-th="color:muted">端口</span><b style="flex:1;min-width:0;font-weight:600;word-break:break-all" id="conn_port" data-th="color:fg">-</b></div>
+                        <div class="conn_row" style="display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #626a76"
+                             data-th="border-color:border"><span style="flex:0 0 34px;color:#b6bac2" data-th="color:muted">加密</span><b style="flex:1;min-width:0;font-weight:600;word-break:break-all" id="conn_encrypt" data-th="color:fg">-</b></div>
+                        <div class="conn_row" style="display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #626a76"
+                             data-th="border-color:border"><span style="flex:0 0 34px;color:#b6bac2" data-th="color:muted">平台</span><b style="flex:1;min-width:0;font-weight:600;word-break:break-all" id="conn_platform" data-th="color:fg">-</b></div>
+                        <div class="conn_row" style="display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #626a76"
+                             data-th="border-color:border"><span style="flex:0 0 34px;color:#b6bac2" data-th="color:muted">状态</span><b style="flex:1;min-width:0;font-weight:600;word-break:break-all" id="conn_state" data-th="color:fg">检测中</b></div>
+                        <div class="conn_hint" style="color:#b6bac2;font-size:11px;line-height:1.6;margin-top:6px;word-break:break-all"
+                             data-th="color:muted">状态由服务端实时监控<br>操作按钮位于服务端日志标题栏<br>剪贴板在画面聚焦时自动同步</div>
+                    </div>
+                </div>
+
+                <div class="q3_pane" data-pane="port">
+                    <div id="port_panel" style="font-size:11px;font-family:inherit">
+                        <div class="conn_hd"
+                             style="font-weight:600;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #626a76;color:#ffffff;font-size:12px"
+                             data-th="color:fg;border-color:border">本机开放端口</div>
+                        <div id="port_list"
+                             style="max-height:150px;overflow-y:auto"></div>
+                    </div>
+                </div>
+
+                <div class="q3_pane" data-pane="power">
+                    <div id="noVNC_power" class="noVNC_panel">
+                        <div class="noVNC_heading">
+                            <img alt="" src="app/images/power.svg"> Power
+                        </div>
+                        <input type="button" id="noVNC_shutdown_button" value="Shutdown">
+                        <input type="button" id="noVNC_reboot_button" value="Reboot">
+                        <input type="button" id="noVNC_reset_button" value="Reset">
+                    </div>
+                </div>
+
+                <div class="q3_pane" data-pane="clip">
+                    <div id="noVNC_clipboard" class="noVNC_panel">
+                        <div class="noVNC_heading">
+                            <img alt="" src="app/images/clipboard.svg"> Clipboard
+                        </div>
+                        <p class="noVNC_subheading">
+                            Edit clipboard content in the textbox below.
+                        </p>
+                        <textarea id="noVNC_clipboard_text" rows=5></textarea>
+                    </div>
+                </div>
+
+                <div class="q3_pane" data-pane="set">
+                    <div id="noVNC_settings" class="noVNC_panel">
+                        <div class="noVNC_heading">
+                            <img alt="" src="app/images/settings.svg"> Settings
+                        </div>
+                        <ul>
+                            <li>
+                                <label>
+                                    <input id="noVNC_setting_shared" type="checkbox"
+                                           class="toggle">
+                                    Shared mode
+                                </label>
+                            </li>
+                            <li>
+                                <label>
+                                    <input id="noVNC_setting_view_only" type="checkbox"
+                                           class="toggle">
+                                    View only
+                                </label>
+                            </li>
+                            <li><hr></li>
+                            <li>
+                                <label>
+                                    <input id="noVNC_setting_view_clip" type="checkbox"
+                                           class="toggle">
+                                    Clip to window
+                                </label>
+                            </li>
+                            <li style="display:none">
+                                <label for="noVNC_setting_resize">Scaling mode:</label>
+                                <select id="noVNC_setting_resize" name="vncResize">
+                                    <option value="off" selected>None</option>
+                                    <option value="scale">Local scaling</option>
+                                    <option value="remote">Remote resizing</option>
+                                </select>
+                            </li>
+                            <li><hr></li>
+                            <li>
+                                <div class="noVNC_expander">Advanced</div>
+                                <div><ul>
+                                    <li>
+                                        <label for="noVNC_setting_quality">Quality:</label>
+                                        <input id="noVNC_setting_quality" type="range" min="0" max="9" value="6">
+                                    </li>
+                                    <li>
+                                        <label for="noVNC_setting_compression">Compression level:</label>
+                                        <input id="noVNC_setting_compression" type="range" min="0" max="9" value="2">
+                                    </li>
+                                    <li><hr></li>
+                                    <li class="noVNC_hide">
+                                        <label for="noVNC_setting_repeaterID">Repeater ID:</label>
+                                        <input id="noVNC_setting_repeaterID" type="text" value="">
+                                    </li>
+                                    <li class="noVNC_hide">
+                                        <div class="noVNC_expander">WebSocket</div>
+                                        <div><ul>
+                                            <li>
+                                                <label>
+                                                    <input id="noVNC_setting_encrypt" type="checkbox"
+                                                           class="toggle">
+                                                    Encrypt
+                                                </label>
+                                            </li>
+                                            <li>
+                                                <label for="noVNC_setting_host">Host:</label>
+                                                <input id="noVNC_setting_host">
+                                            </li>
+                                            <li>
+                                                <label for="noVNC_setting_port">Port:</label>
+                                                <input id="noVNC_setting_port" type="number">
+                                            </li>
+                                            <li>
+                                                <label for="noVNC_setting_path">Path:</label>
+                                                <input id="noVNC_setting_path" type="text" value="websockify">
+                                            </li>
+                                        </ul></div>
+                                    </li>
+                                    <li><hr></li>
+                                    <li>
+                                        <label>
+                                            <input id="noVNC_setting_reconnect" type="checkbox"
+                                                   class="toggle">
+                                            Automatic reconnect
+                                        </label>
+                                    </li>
+                                    <li>
+                                        <label for="noVNC_setting_reconnect_delay">Reconnect delay (ms):</label>
+                                        <input id="noVNC_setting_reconnect_delay" type="number">
+                                    </li>
+                                    <li><hr></li>
+                                    <li>
+                                        <label>
+                                            <input id="noVNC_setting_show_dot" type="checkbox"
+                                                   class="toggle">
+                                            Show dot when no cursor
+                                        </label>
+                                    </li>
+                                    <li>
+                                        <label>
+                                            <input id="noVNC_setting_keep_device_awake" type="checkbox"
+                                                    class="toggle">
+                                            Keep client display awake while connected
+                                        </label>
+                                    </li>
+                                    <li><hr></li>
+                                    <li>
+                                        <label>Logging:
+                                            <select id="noVNC_setting_logging" name="vncLogging">
+                                            </select>
+                                        </label>
+                                    </li>
+                                </ul></div>
+                            </li>
+                            <li class="noVNC_version_separator"><hr></li>
+                            <li class="noVNC_version_wrapper">
+                                <span>Version:</span>
+                                <span class="noVNC_version"></span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="q3_pane" data-pane="theme">
+                    <div id="theme_panel" style="margin-top:10px;border-top:1px solid #626a76;padding-top:8px;font-size:13px;font-family:inherit"
+                         data-th="border-color:border">
+                        <div class="conn_hd"
+                             style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #626a76;color:#ffffff"
+                             data-th="color:fg;border-color:border">界面主题</div>
+                        <div class="theme_btns" style="display:flex;gap:8px;margin-bottom:10px">
+                            <button class="theme_btn" data-theme="dark" title="深色主题（默认）"
+                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer;font-family:inherit"
+                                    data-th="background:panel;color:fg;border-color:input">深色</button>
+                            <button class="theme_btn" data-theme="light" title="浅色主题"
+                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer;font-family:inherit"
+                                    data-th="background:panel;color:fg;border-color:input">浅色</button>
+                        </div>
+                        <div class="conn_hint"
+                             style="color:#b6bac2;font-size:12px;line-height:1.6"
+                             data-th="color:muted">主题选择自动保存到服务端配置文件，对所有访问者生效</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 四象限（右下）：命令行 + 服务端日志 -->
+        <div id="q_bottom"
+             style="position:absolute;left:346px;bottom:0;right:0;height:230px;display:flex">
+
+            <div id="q_cmd"
+                 style="flex:0 0 50%;min-width:0;min-height:0;display:flex;flex-direction:column;background:#2b2e33;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:13px;border-right:1px solid #626a76"
+                 data-th="background:bg;color:fg;border-color:border">
+                <div class="panel_header"
+                     style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:#33373d;color:#ffffff;font-weight:600;border-bottom:1px solid #626a76;user-select:none"
+                     data-th="background:panel;color:fg;border-color:border">
+                    <span class="cmd_title" style="flex:0 0 auto;font-weight:600">命令行</span>
+                    <button class="hdr_btn" id="term_clear_btn" title="清空"
+                            style="background:transparent;border:none;color:#ffffff;font-size:13px;cursor:pointer;padding:0 3px;font-family:inherit"
+                            data-th="color:fg">清屏</button>
+                </div>
+                <div id="term_output"
+                     style="flex:1;overflow:auto;padding:6px 10px;background:#2b2e33;font-family:Consolas,'Courier New',monospace;font-size:12px;line-height:1.45;white-space:pre-wrap;word-break:break-all;min-height:0"
+                     data-th="background:bg;color:fg"></div>
+                <div class="term_input_row"
+                     style="display:flex;gap:6px;padding:6px 8px;border-top:1px solid #626a76;background:#2b2e33"
+                     data-th="background:bg;border-color:border">
+                    <input id="term_input" placeholder="输入命令，按 Enter 执行"
+                           style="flex:1;min-width:0;background:#33373d;border:1px solid #4a4e56;color:#ffffff;border-radius:3px;padding:4px 8px;font-family:Consolas,monospace;font-size:12px;outline:none"
+                           data-th="background:panel;color:fg;border-color:input">
+                    <button id="term_send_btn"
+                            style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 12px;font-size:12px;cursor:pointer;font-family:inherit"
+                            data-th="background:accent;color:accentfg">执行</button>
+                    <button id="term_stop_btn" disabled
+                            style="background:#a03030;border:none;color:#ffffff;border-radius:3px;padding:3px 12px;font-size:12px;cursor:pointer;font-family:inherit;opacity:0.45">停止</button>
+                </div>
+            </div>
+
+            <div id="q_log"
+                 style="flex:0 0 50%;min-width:0;min-height:0;display:flex;flex-direction:column;background:#2b2e33;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:13px"
+                 data-th="background:bg;color:fg">
+                <div class="panel_header"
+                     style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:#33373d;color:#ffffff;font-weight:600;border-bottom:1px solid #626a76;user-select:none"
+                     data-th="background:panel;color:fg;border-color:border">
+                    <span class="log_title" style="flex:0 0 auto;font-weight:600">服务端日志</span>
+                    <button class="hdr_btn" id="log_clear_btn" title="清屏"
+                            style="background:transparent;border:none;color:#ffffff;font-size:13px;cursor:pointer;padding:0 3px;font-family:inherit"
+                            data-th="color:fg">清屏</button>
+                    <span class="conn_status" id="log_conn_status" title="VNC 连接状态"
+                          style="display:flex;align-items:center;gap:5px;margin-left:auto;font-size:12px">
+                        <i id="log_conn_dot"
+                           style="width:9px;height:9px;border-radius:50%;display:inline-block;background:#808080"></i>
+                        <span id="log_conn_text" data-th="color:fg">检测中</span>
+                    </span>
+                    <button class="conn_btn" id="log_toggle_btn" title="连接/断开 VNC"
+                            style="background:transparent;border:1px solid #ffffff;border-radius:3px;color:#ffffff;font-size:11px;padding:0 4px;line-height:1.6;cursor:pointer;font-family:inherit"
+                            data-th="border-color:fg;color:fg">连接</button>
+                </div>
+                <div id="log_output"
+                     style="flex:1;overflow:auto;padding:6px 10px;background:#2b2e33;font-family:Consolas,'Courier New',monospace;font-size:12px;line-height:1.45;white-space:pre-wrap;word-break:break-all;min-height:0"
+                     data-th="background:bg;color:fg"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 移动文件弹窗（蒙版 + 目录选择） -->
+    <div id="move_mask"
+         style="display:none;position:fixed;inset:0;background:rgba(211,211,211,0.4);z-index:2000"></div>
+    <div id="move_dlg"
+         style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,80vw);height:min(420px,70vh);background:#2b2e33;color:#ffffff;border:1px solid #636a75;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.35);z-index:2010;flex-direction:column;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;font-size:13px"
+         data-th="background:bg;color:fg;border-color:accent">
+        <div class="move_title"
+             style="padding:8px 12px;background:#636a75;color:#ffffff;font-weight:600"
+             data-th="background:accent;color:accentfg">移动到目录</div>
+        <div class="fm_path"
+             style="display:flex;align-items:center;gap:1px;padding:2px 4px;border-bottom:1px solid #626a76;background:#2b2e33;color:#ffffff"
+             data-th="background:bg;color:fg;border-color:border">
+            <button class="path_btn" id="mv_home_btn" title="根目录"
+                    style="background:transparent;border:none;border-radius:3px;cursor:pointer;font-size:12px;padding:0 1px;color:#ffffff;font-family:inherit;line-height:1.2"
+                    data-th="color:fg">&#127968;</button>
+            <button class="path_btn" id="mv_up_btn" title="上级目录"
+                    style="background:transparent;border:none;border-radius:3px;cursor:pointer;font-size:12px;padding:0 1px;color:#ffffff;font-family:inherit;line-height:1.2"
+                    data-th="color:fg">&#8592;</button>
+            <span id="mv_path_text"
+                  style="flex:1;word-break:break-all;font-family:Consolas,monospace;font-size:12px;color:#1c1f23;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                  data-th="color:fg"></span>
+        </div>
+        <div id="mv_tree" style="flex:1;overflow:auto;padding:4px 0;min-height:0"></div>
+        <div class="move_btns"
+             style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;border-top:1px solid #626a76"
+             data-th="border-color:border">
+            <button id="mv_cancel_btn"
+                    style="border-radius:4px;border:1px solid #636a75;background:#2b2e33;color:#ffffff;padding:4px 16px;cursor:pointer;font-family:inherit"
+                    data-th="background:bg;color:fg;border-color:accent">取消</button>
+            <button id="mv_ok_btn"
+                    style="border-radius:4px;border:1px solid #636a75;background:#636a75;color:#ffffff;padding:4px 16px;cursor:pointer;font-family:inherit"
+                    data-th="background:accent;color:accentfg;border-color:accent">确定</button>
+        </div>
+    </div>
+
+    <audio id="noVNC_bell">
+        <source src="app/sounds/bell.oga" type="audio/ogg">
+        <source src="app/sounds/bell.mp3" type="audio/mpeg">
+    </audio>
+
+    <script src="app/webvnc.js"></script>
+ </body>
+</html>

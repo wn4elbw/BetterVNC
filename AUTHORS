@@ -1,0 +1,30 @@
+# 作者
+
+## 本项目维护者
+
+- webvnc 项目由本仓库作者维护（为 Windows 远程管理场景集成 noVNC 客户端与本机 VNC 服务端）。
+
+## 上游 noVNC 原作者
+
+本项目前端基于 [noVNC](https://github.com/novnc/noVNC)，其原作者如下：
+
+### 当前维护者
+
+- Samuel Mannehed（Cendio AB, @samhed）
+- Pierre Ossman（Cendio AB, @CendioOssman）
+
+### 维护者（荣誉退休）
+
+- Joel Martin（@kanaka）
+- Solly Ross（@directxman12）
+- @astrand
+
+### 贡献者
+
+noVNC 的贡献者列表非常庞大，无法一一列出。若希望将名字加入该列表，欢迎提交 Pull Request。历史上参与贡献的知名成员包括：
+
+- jalf <git@jalf.dk>
+- NTT corp.
+- 以及大量社区开发者
+
+完整提交历史可查看：https://github.com/novnc/noVNC/commits/master

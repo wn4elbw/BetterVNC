@@ -1,0 +1,38 @@
+/* webvnc 样式说明：
+   除屏幕区（预览框）外，所有界面元素样式均直接写死在 vnc.html 的
+   内联 style 中，并带 data-th 属性由 JS 按主题（深色/浅色）动态覆盖。
+   本文件仅保留屏幕区（预览框）相关样式。 */
+
+/* 一象限：远程屏幕（预览框） */
+#q_screen { position: absolute; left: 346px; top: 0; right: 0; bottom: 230px; background: #1a1b20; }
+
+#q_screen #noVNC_container { width: 100%; height: 100%; }
+
+/* 屏幕浮动工具按钮（网页全屏 / 全屏网页，右下角） */
+#screen_tools {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 30;
+    display: flex;
+    gap: 6px;
+}
+
+#screen_tools button {
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.35);
+    background: rgba(30,31,36,0.72);
+    color: #fff;
+    font-size: 12px;
+    padding: 2px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+#screen_tools button:hover { background: rgba(70,74,86,0.85); }
+
+/* ===== 滚动条 ===== */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #9a9aa2; border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
