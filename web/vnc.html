@@ -187,6 +187,25 @@
                       style="flex:1;word-break:break-all;font-family:Consolas,monospace;font-size:12px;color:#1c1f23;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
                       data-th="color:fg"></span>
             </div>
+            <div class="fm_bottom"
+                 style="display:flex;gap:3px;padding:4px 8px;border-bottom:1px solid #626a76;background:#2b2e33"
+                 data-th="background:bg;border-color:border">
+                <button id="fm_home_btn" title="根目录/驱动器"
+                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;width:20px;height:20px;padding:0;font-size:12px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit"
+                        data-th="background:accent;color:accentfg">&#127968;</button>
+                <button id="fm_up_btn" title="上级目录"
+                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;width:20px;height:20px;padding:0;font-size:12px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit"
+                        data-th="background:accent;color:accentfg">&#8592;</button>
+                <button id="fm_mkdir_btn" title="新建文件夹"
+                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;width:20px;height:20px;padding:0;font-size:12px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit"
+                        data-th="background:accent;color:accentfg">&#43;</button>
+                <button id="fm_upload_btn" title="上传文件"
+                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;width:20px;height:20px;padding:0;font-size:12px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit"
+                        data-th="background:accent;color:accentfg">&#8593;</button>
+                <button id="fm_zip_btn" title="打包多选项目下载 zip"
+                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;width:20px;height:20px;padding:0;font-size:12px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit"
+                        data-th="background:accent;color:accentfg">&#8681;</button>
+            </div>
             <div class="fm_prompt" id="fm_prompt"
                  style="display:none;position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);flex-direction:column;gap:8px;padding:14px 16px;background:#2b2e33;color:#ffffff;border:1px solid #636a75;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.35);z-index:2020;font-family:'Segoe UI',Arial,sans-serif;font-size:13px;min-width:280px"
                  data-th="background:bg;color:fg;border-color:accent">
@@ -210,25 +229,6 @@
             <div class="fm_status" id="fm_status"
                  style="padding:3px 8px;border-top:1px solid #626a76;color:#b6bac2;font-size:11px;background:#2b2e33;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
                  data-th="background:bg;color:muted;border-color:border"></div>
-            <div class="fm_bottom"
-                 style="display:flex;gap:4px;padding:4px 8px 12px;border-top:1px solid #626a76;background:#2b2e33"
-                 data-th="background:bg;border-color:border">
-                <button id="fm_home_btn" title="根目录/驱动器"
-                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
-                        data-th="background:accent;color:accentfg">&#127968;</button>
-                <button id="fm_up_btn" title="上级目录"
-                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
-                        data-th="background:accent;color:accentfg">&#8592;</button>
-                <button id="fm_mkdir_btn" title="新建文件夹"
-                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
-                        data-th="background:accent;color:accentfg">&#43;</button>
-                <button id="fm_upload_btn" title="上传文件"
-                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
-                        data-th="background:accent;color:accentfg">&#8593;</button>
-                <button id="fm_zip_btn" title="打包多选项目下载 zip"
-                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
-                        data-th="background:accent;color:accentfg">&#8681;</button>
-            </div>
             <input type="file" id="fm_file_input" multiple hidden>
         </div>
 
