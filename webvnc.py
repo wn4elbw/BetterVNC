@@ -770,6 +770,7 @@ class VNCClient:
         self.pixel_size = 4
         self._buf = b""
         self._last_clip_version = server._clip_version
+        self._zco = None  # 跨 rect/FBU 复用的 zlib 流式压缩器
 
     def close(self):
         try:
@@ -818,7 +819,7 @@ class VNCClient:
                 n = struct.unpack("!H", self._recv(2))[0]
                 encs = [struct.unpack("!i", self._recv(4))[0]
                         for _ in range(n)]
-                self.use_zlib = -224 in encs  # ZLIB 编码，优先于 Raw
+                self.use_zlib = 6 in encs  # ZLIB 编码（RFB 标准值 6），优先于 Raw
             elif msg_type == 3:
                 incremental = self._recv(1)[0]
                 self._recv(8)
@@ -957,9 +958,12 @@ class VNCClient:
                 off = yy * row_bytes + x * self.pixel_size
                 raw += data[off:off + rw * self.pixel_size]
             if use_zlib and rw * rh > 64:
-                body = zlib.compress(bytes(raw), 6)
+                if self._zco is None:
+                    self._zco = zlib.compressobj(6)
+                body = self._zco.compress(bytes(raw))
+                body += self._zco.flush(zlib.Z_SYNC_FLUSH)
                 out += struct.pack("!HHHH", x, y, rw, rh)
-                out += struct.pack("!i", -224)
+                out += struct.pack("!i", 6)  # ZLIB 编码（RFB 标准值）
                 out += struct.pack("!I", len(body))
                 out += body
             else:
