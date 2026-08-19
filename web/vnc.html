@@ -3,18 +3,15 @@
 <head>
 
     <!--
-    webvnc 主界面：四象限十字布局
+    BetterVNC 主界面：四象限十字布局
       一象限（右上，最大）：远程屏幕 + 缩放/全屏浮动按钮
-      二象限（左上，细高）：文件树（行内操作按钮 + 底部新建/上传/zip）
-      三象限（左下，最小）：左栏分类 + 右侧内容（noVNC 面板 + 主题设置）
+      二象限（左上，细高）：文件树（行内操作按钮 + 地址栏下方工具按钮）
+      三象限（左下，最小）：左栏分类 + 右侧内容（面板 + 主题设置）
       四象限（右下，扁平）：命令行 + 服务端日志
-
-    基于 noVNC（MPL 2.0 / 2-Clause BSD，见 LICENSE.txt）
     -->
 
-    <title>webvnc</title>
+    <title>BetterVNC</title>
 
-    <link rel="icon" type="image/x-icon" href="app/images/icons/novnc.ico">
     <meta charset="utf-8">
     <meta name="theme-color" content="#313131">
 
@@ -22,19 +19,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-    <!-- @2x -->
-    <link rel="apple-touch-icon" sizes="40x40" type="image/png" href="app/images/icons/novnc-ios-40.png">
-    <link rel="apple-touch-icon" sizes="58x58" type="image/png" href="app/images/icons/novnc-ios-58.png">
-    <link rel="apple-touch-icon" sizes="80x80" type="image/png" href="app/images/icons/novnc-ios-80.png">
-    <link rel="apple-touch-icon" sizes="120x120" type="image/png" href="app/images/icons/novnc-ios-120.png">
-    <link rel="apple-touch-icon" sizes="152x152" type="image/png" href="app/images/icons/novnc-ios-152.png">
-    <link rel="apple-touch-icon" sizes="167x167" type="image/png" href="app/images/icons/novnc-ios-167.png">
-    <!-- @3x -->
-    <link rel="apple-touch-icon" sizes="60x60" type="image/png" href="app/images/icons/novnc-ios-60.png">
-    <link rel="apple-touch-icon" sizes="87x87" type="image/png" href="app/images/icons/novnc-ios-87.png">
-    <link rel="apple-touch-icon" sizes="120x120" type="image/png" href="app/images/icons/novnc-ios-120.png">
-    <link rel="apple-touch-icon" sizes="180x180" type="image/png" href="app/images/icons/novnc-ios-180.png">
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="app/styles/constants.css">
@@ -87,7 +71,7 @@
             if (s.encrypt !== undefined) { defaults.encrypt = s.encrypt; }
             defaults.host = location.hostname;
             defaults.port = location.port || (s.encrypt ? "443" : "80");
-            if (s.machine) { document.title = "webvnc - " + s.machine; }
+            if (s.machine) { document.title = "BetterVNC - " + s.machine; }
         }
 
         // 暴露给普通脚本（webvnc.js）用于连接/断开控制

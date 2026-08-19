@@ -1,11 +1,8 @@
-# webvnc — Windows 远程管理工具
+# BetterVNC — Windows 远程管理工具
 
-webvnc 是一个单文件、跨平台的远程管理工具，内置纯 Python 实现的 VNC Server，并集成
+BetterVNC 是一个单文件、跨平台的远程管理工具，内置纯 Python 实现的 VNC Server，并集成
 HTTPS 文件管理器和命令行终端。在 Windows 上运行后，即可通过浏览器远程查看和控制本机屏幕、
 管理文件、执行命令，无需安装任何外部软件（如 TigerVNC、x11vnc、websockify 等）。
-
-> 本项目基于 [noVNC](https://github.com/novnc/noVNC)（MPL-2.0）构建，使用其网页客户端前端，
-> 后端由本仓库自带的 `webvnc.py` 提供 VNC Server、HTTPS 服务、文件管理与命令执行能力。
 
 ## 功能特性
 

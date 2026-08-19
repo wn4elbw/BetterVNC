@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gui.py - webvnc 图形控制台（Tkinter）
+gui.py - BetterVNC 图形控制台（Tkinter）
 
 功能：
   1. 启动/停止服务端（webvnc.py），实时查看服务端日志
@@ -78,7 +78,7 @@ class App:
         self.cmdq = queue.Queue()
         self.icon = tk.PhotoImage(data=_ICON_BROWSER_B64)
 
-        root.title("webvnc 控制台")
+        root.title("BetterVNC 控制台")
         root.geometry("980x660")
         root.minsize(860, 560)
 

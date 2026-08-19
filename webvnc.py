@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-webvnc.py - Windows 远程管理工具（单文件，自带 VNC Server）
+webvnc.py - BetterVNC 服务端（Windows 远程管理工具，单文件，自带 VNC Server）
 
 功能：
   1. 自带纯 Python VNC Server（RFB 003.008 协议），共享本机屏幕，无密码
   2. HTTPS 文件管理器：左侧面板，从根目录浏览文件树，
      支持上传 / 下载 / 新建文件夹 / 改名 / 移动 / 打包 zip 下载
   3. 命令行终端：下方面板，直接执行命令并获取输出
-  4. 基于 noVNC 的网页客户端，打开即自动连接（无点击连接）
+  4. 内置网页客户端，打开即自动连接（无点击连接）
 
 平台：Windows（共享真实屏幕并模拟键鼠输入）。
      非 Windows 环境自动切换为虚拟屏幕演示模式（便于调试预览）；
@@ -1260,7 +1260,8 @@ def system_info():
 # ---------------------------------------------------------------------------
 class WebHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "webvnc/1.0"
+    timeout = 30  # 空闲 keep-alive 连接 30 秒自动关闭，防止挂起连接堆积句柄
+    server_version = "BetterVNC/1.0"
     directory = "web"  # 相对路径，main() 已切换到脚本目录
     vnc_host = "127.0.0.1"
     vnc_port = 5900
@@ -1785,7 +1786,7 @@ def main():
         pass
 
     ap = argparse.ArgumentParser(
-        description="webvnc - Windows 远程管理工具（VNC + HTTPS 文件管理 + 终端）")
+        description="BetterVNC - Windows 远程管理工具（VNC + HTTPS 文件管理 + 终端）")
     ap.add_argument("--host", default="0.0.0.0", help="Web 监听地址（默认 0.0.0.0）")
     ap.add_argument("--port", type=int, default=6080, help="HTTPS 端口（默认 6080）")
     ap.add_argument("--vnc-host", default="0.0.0.0", help="VNC Server 监听地址")
