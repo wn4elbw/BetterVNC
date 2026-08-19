@@ -816,7 +816,9 @@ class VNCClient:
             elif msg_type == 2:
                 self._recv(1)
                 n = struct.unpack("!H", self._recv(2))[0]
-                self._recv(n * 4)
+                encs = [struct.unpack("!i", self._recv(4))[0]
+                        for _ in range(n)]
+                self.use_zlib = -224 in encs  # ZLIB 编码，优先于 Raw
             elif msg_type == 3:
                 incremental = self._recv(1)[0]
                 self._recv(8)
@@ -945,13 +947,24 @@ class VNCClient:
         return rects
 
     def _send_fbu(self, data, w, h, rects):
+        import zlib
         out = bytearray(struct.pack("!BBH", 0, 0, len(rects)))
         row_bytes = w * self.pixel_size
+        use_zlib = getattr(self, "use_zlib", False)
         for (x, y, rw, rh) in rects:
-            out += struct.pack("!HHHHI", x, y, rw, rh, 0)
+            raw = bytearray()
             for yy in range(y, y + rh):
                 off = yy * row_bytes + x * self.pixel_size
-                out += data[off:off + rw * self.pixel_size]
+                raw += data[off:off + rw * self.pixel_size]
+            if use_zlib and rw * rh > 64:
+                body = zlib.compress(bytes(raw), 6)
+                out += struct.pack("!HHHH", x, y, rw, rh)
+                out += struct.pack("!i", -224)
+                out += struct.pack("!I", len(body))
+                out += body
+            else:
+                out += struct.pack("!HHHHI", x, y, rw, rh, 0)
+                out += raw
         self._send(bytes(out))
 
 
@@ -1311,6 +1324,8 @@ class WebHandler(BaseHTTPRequestHandler):
             return self._api_log_tail()
         if path == "/api/netstat":
             return self._send_json({"ports": get_netstat()})
+        if path == "/api/ping":
+            return self._send_json({"pong": True})
         if path == "/api/clipboard":
             srv = WebHandler.vnc_server
             text = ""

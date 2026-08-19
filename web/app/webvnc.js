@@ -1183,6 +1183,82 @@
     })();
 
     /* ===== 启动 ===== */
+    const perf = (function () {
+        const overlay = $("perf_overlay");
+        const toggle = $("perf_show_btn");
+        let enabled = false;
+        let frames = 0;
+        let lastCount = 0;
+        let fps = 0;
+        let latency = -1;
+        let quality = "-";
+        let hooked = false;
+        let timers = null;
+
+        function hookRfb() {
+            const rfb = (window.UI || {}).rfb;
+            if (!rfb || hooked || typeof rfb._handleFramebufferUpdate !== "function") {
+                return;
+            }
+            hooked = true;
+            const orig = rfb._handleFramebufferUpdate.bind(rfb);
+            rfb._handleFramebufferUpdate = function () {
+                frames++;
+                return orig.apply(rfb, arguments);
+            };
+        }
+
+        function ping() {
+            const t0 = performance.now();
+            fetch("/api/ping", { cache: "no-store" })
+                .then(() => { latency = Math.round(performance.now() - t0); })
+                .catch(() => { latency = -1; });
+        }
+
+        function tick() {
+            if (!enabled || !overlay) return;
+            hookRfb();
+            const rfb = (window.UI || {}).rfb;
+            if (rfb && rfb.qualityLevel !== undefined) {
+                quality = rfb.qualityLevel;
+            }
+            const now = performance.now();
+            if (now - lastCount >= 1000) {
+                fps = Math.round(frames * 1000 / (now - lastCount));
+                lastCount = now;
+                frames = 0;
+            }
+            overlay.textContent = "帧率: " + (fps > 0 ? fps : "--") + " FPS\n画质: " +
+                quality + "\n延迟: " + (latency >= 0 ? latency : "--") + " ms";
+        }
+
+        function init() {
+            if (!overlay || !toggle) return;
+            toggle.addEventListener("change", () => {
+                enabled = toggle.checked;
+                overlay.style.display = enabled ? "block" : "none";
+                if (enabled) {
+                    frames = 0;
+                    lastCount = performance.now();
+                    fps = 0;
+                    latency = -1;
+                    quality = "-";
+                    hookRfb();
+                    ping();
+                    tick();
+                    if (!timers) {
+                        timers = [
+                            setInterval(tick, 500),
+                            setInterval(ping, 2000),
+                        ];
+                    }
+                }
+            });
+        }
+
+        return { init };
+    })();
+
     function setupClipboard() {
         const btn = $("noVNC_send_clipboard_button");
         if (!btn) return;
@@ -1204,17 +1280,6 @@
                 } catch (err) { /* 忽略 */ }
             }
         });
-        document.addEventListener("click", (ev) => {
-            if (!ev.target.closest('.q3_nav_btn[data-pane="clip"]')) return;
-            fetch("/api/clipboard")
-                .then((r) => (r.ok ? r.json() : null))
-                .then((d) => {
-                    if (d && typeof d.text === "string") {
-                        $("noVNC_clipboard_text").value = d.text;
-                    }
-                })
-                .catch(() => { /* 忽略 */ });
-        });
     }
 
     function boot() {
@@ -1230,6 +1295,7 @@
         portPanel.init();
         connStatus.init();
         setupClipboard();
+        perf.init();
     }
 
     if (document.readyState === "loading") {

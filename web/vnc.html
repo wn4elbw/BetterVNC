@@ -228,6 +228,9 @@
                 <textarea id="noVNC_keyboardinput" autocapitalize="off"
                     autocomplete="off" spellcheck="false" tabindex="-1"></textarea>
             </div>
+            <div id="perf_overlay"
+                 style="display:none;position:absolute;left:8px;top:8px;z-index:30;background:rgba(20,22,26,0.72);color:#e8e8ec;border:1px solid rgba(98,106,118,0.6);border-radius:4px;padding:5px 9px;font-family:Consolas,'Courier New',monospace;font-size:12px;line-height:1.5;pointer-events:none;white-space:pre"
+                 data-th="color:fg">帧率: -- FPS&#10;画质: --&#10;延迟: -- ms</div>
             <div id="screen_tools">
                 <button id="st_page_fs_btn" title="网页全屏（整个网页进入浏览器全屏）">网页全屏</button>
                 <button id="st_full_page_btn" title="全屏网页（屏幕区铺满浏览器窗口）">全屏网页</button>
@@ -295,9 +298,9 @@
                 <button class="q3_nav_btn" data-pane="conn"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
                         data-th="color:navfg">连接</button>
-                <button class="q3_nav_btn" data-pane="clip"
+                <button class="q3_nav_btn" data-pane="perf"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
-                        data-th="color:navfg">剪贴板</button>
+                        data-th="color:navfg">性能</button>
                 <button class="q3_nav_btn" data-pane="theme"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
                         data-th="color:navfg">主题</button>
@@ -512,6 +515,25 @@
                                 <span class="noVNC_version"></span>
                             </li>
                         </ul>
+                    </div>
+                </div>
+
+                <div class="q3_pane" data-pane="perf">
+                    <div id="perf_panel" style="font-size:13px;font-family:inherit">
+                        <div class="conn_hd"
+                             style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #626a76;color:#ffffff"
+                             data-th="color:fg;border-color:border">性能监控</div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"
+                                   data-th="color:fg">
+                                <input type="checkbox" id="perf_show_btn"
+                                       style="width:14px;height:14px;cursor:pointer">
+                                在预览框显示帧率 / 画质 / 延迟
+                            </label>
+                        </div>
+                        <div class="conn_hint"
+                             style="color:#b6bac2;font-size:12px;line-height:1.6"
+                             data-th="color:muted">开启后，预览画面左上角实时显示每秒帧数、当前画质等级与网络往返延迟（毫秒）。</div>
                     </div>
                 </div>
 
