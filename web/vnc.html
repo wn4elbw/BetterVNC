@@ -181,14 +181,8 @@
                         data-th="color:fg">&#8635;</button>
             </div>
             <div class="fm_path"
-                 style="display:flex;align-items:center;gap:1px;padding:2px 4px;border-bottom:1px solid #626a76;background:#2b2e33;color:#ffffff"
+                 style="display:flex;align-items:center;padding:2px 8px;border-bottom:1px solid #626a76;background:#2b2e33;color:#ffffff"
                  data-th="background:bg;color:fg;border-color:border">
-                <button class="path_btn" id="fm_home_btn" title="根目录/驱动器"
-                        style="background:transparent;border:none;border-radius:3px;cursor:pointer;font-size:12px;padding:0 1px;color:#ffffff;font-family:inherit;line-height:1.2"
-                        data-th="color:fg">&#127968;</button>
-                <button class="path_btn" id="fm_up_btn" title="上级目录"
-                        style="background:transparent;border:none;border-radius:3px;cursor:pointer;font-size:12px;padding:0 1px;color:#ffffff;font-family:inherit;line-height:1.2"
-                        data-th="color:fg">&#8592;</button>
                 <span id="fm_path_text"
                       style="flex:1;word-break:break-all;font-family:Consolas,monospace;font-size:12px;color:#1c1f23;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
                       data-th="color:fg"></span>
@@ -219,6 +213,12 @@
             <div class="fm_bottom"
                  style="display:flex;gap:4px;padding:4px 8px 12px;border-top:1px solid #626a76;background:#2b2e33"
                  data-th="background:bg;border-color:border">
+                <button id="fm_home_btn" title="根目录/驱动器"
+                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
+                        data-th="background:accent;color:accentfg">&#127968;</button>
+                <button id="fm_up_btn" title="上级目录"
+                        style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
+                        data-th="background:accent;color:accentfg">&#8592;</button>
                 <button id="fm_mkdir_btn" title="新建文件夹"
                         style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 9px;font-size:13px;cursor:pointer;font-family:inherit"
                         data-th="background:accent;color:accentfg">&#43;</button>
