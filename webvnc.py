@@ -800,7 +800,7 @@ class VNCClient:
         self._recv(1)
         img = self.grabber.grab()
         w, h = img.size
-        name = b"webvnc"
+        name = b"BetterVNC"
         fmt = struct.pack("!BBBBHHHBBBxxx", 32, 24, 0, 1, 255, 255, 255,
                           16, 8, 0)
         self._send(struct.pack("!HH", w, h) + fmt +

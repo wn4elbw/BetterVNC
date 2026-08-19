@@ -19,7 +19,7 @@ import RFB from "../core/rfb.js";
 import WakeLockManager from './wakelock.js';
 import * as WebUtil from "./webutil.js";
 
-const PAGE_TITLE = "noVNC";
+const PAGE_TITLE = "BetterVNC";
 
 const LINGUAS = ["cs", "de", "el", "es", "fr", "hr", "hu", "it", "ja", "ko", "nl", "pl", "pt_BR", "ru", "sv", "tr", "uk", "zh_CN", "zh_TW"];
 
@@ -1877,7 +1877,11 @@ const UI = {
     updateDesktopName(e) {
         UI.desktopName = e.detail.name;
         // Display the desktop name in the document title
-        document.title = e.detail.name + " - " + PAGE_TITLE;
+        if (e.detail.name && e.detail.name !== PAGE_TITLE) {
+            document.title = e.detail.name + " - " + PAGE_TITLE;
+        } else {
+            document.title = PAGE_TITLE;
+        }
     },
 
     updateRequestWakelock() {
