@@ -1311,6 +1311,18 @@ class WebHandler(BaseHTTPRequestHandler):
             return self._api_log_tail()
         if path == "/api/netstat":
             return self._send_json({"ports": get_netstat()})
+        if path == "/api/clipboard":
+            srv = WebHandler.vnc_server
+            text = ""
+            if srv:
+                with srv._clip_lock:
+                    text = srv.clipboard
+            if not text:
+                try:
+                    text = _clipboard_get() or ""
+                except Exception:
+                    text = ""
+            return self._send_json({"text": text})
         if path == "/api/theme":
             return self._send_json({"theme": load_theme()})
         if path == "/api/vnc/status":
@@ -1361,6 +1373,19 @@ class WebHandler(BaseHTTPRequestHandler):
                     fname = _new_log_file()
                 return self._send_json({"file": os.path.basename(fname)})
             except OSError as exc:
+                return self._send_json({"error": str(exc)}, 500)
+        if path == "/api/clipboard":
+            try:
+                body = self._read_body() or b"{}"
+                data = json.loads(body)
+                text = data.get("text", "")
+                srv = WebHandler.vnc_server
+                if srv:
+                    srv.set_clipboard(text)
+                else:
+                    _clipboard_set(text)
+                return self._send_json({"text": text, "saved": True})
+            except (ValueError, OSError) as exc:
                 return self._send_json({"error": str(exc)}, 500)
         if path == "/api/vnc/disconnect":
             srv = WebHandler.vnc_server

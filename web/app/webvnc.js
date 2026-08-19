@@ -1186,13 +1186,34 @@
     function setupClipboard() {
         const btn = $("noVNC_send_clipboard_button");
         if (!btn) return;
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
             const ui = window.UI;
-            const text = $("noVNC_clipboard_text").value;
-            if (!ui || !ui.rfb || text === "") return;
+            const ta = $("noVNC_clipboard_text");
+            const text = ta.value;
+            if (text === "") return;
             try {
-                ui.rfb.clipboardPasteFrom(text);
+                await fetch("/api/clipboard", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text }),
+                });
             } catch (err) { /* 忽略 */ }
+            if (ui && ui.rfb) {
+                try {
+                    ui.rfb.clipboardPasteFrom(text);
+                } catch (err) { /* 忽略 */ }
+            }
+        });
+        document.addEventListener("click", (ev) => {
+            if (!ev.target.closest('.q3_nav_btn[data-pane="clip"]')) return;
+            fetch("/api/clipboard")
+                .then((r) => (r.ok ? r.json() : null))
+                .then((d) => {
+                    if (d && typeof d.text === "string") {
+                        $("noVNC_clipboard_text").value = d.text;
+                    }
+                })
+                .catch(() => { /* 忽略 */ });
         });
     }
 
