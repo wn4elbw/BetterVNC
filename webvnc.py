@@ -240,6 +240,45 @@ NO_WINDOW = 0x08000000 if IS_WINDOWS else 0
 # ---------------------------------------------------------------------------
 # 依赖自检：缺少 Pillow 时自动安装 pip + Pillow 并重启进程
 # ---------------------------------------------------------------------------
+def _valid_python_source(path):
+    """校验文件是完整可编译的 Python 源码（避免半截下载的损坏文件）"""
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+        compile(data, path, "exec")
+        return True
+    except Exception:
+        return False
+
+
+def _download_file(url, dest, tries=3):
+    """下载文件并校验完整性：Content-Length 匹配 + Python 源码可编译"""
+    import urllib.request
+    for attempt in range(1, tries + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as resp:
+                total = resp.headers.get("Content-Length")
+                data = resp.read()
+            if total:
+                try:
+                    total = int(total)
+                except ValueError:
+                    total = None
+            if total is not None and len(data) != total:
+                raise IOError(f"下载不完整: 仅收到 {len(data)}/{total} 字节")
+            compile(data, dest, "exec")
+            with open(dest, "wb") as fh:
+                fh.write(data)
+            return True
+        except Exception as exc:
+            log(f"下载 {os.path.basename(dest)} 失败（第 {attempt}/{tries} 次）: {exc}")
+            try:
+                os.remove(dest)
+            except OSError:
+                pass
+    return False
+
+
 def ensure_dependencies():
     try:
         import PIL  # noqa: F401
@@ -259,14 +298,10 @@ def ensure_dependencies():
     probe = run_quiet([py, "-m", "pip", "--version"])
     if probe.returncode != 0:
         get_pip = os.path.join(base, "get-pip.py")
-        if not os.path.exists(get_pip):
+        if not (os.path.exists(get_pip) and _valid_python_source(get_pip)):
             log("正在下载 get-pip.py ...")
-            try:
-                import urllib.request
-                urllib.request.urlretrieve(
-                    "https://bootstrap.pypa.io/get-pip.py", get_pip)
-            except Exception as exc:
-                log(f"下载 get-pip.py 失败: {exc}")
+            if not _download_file(
+                    "https://bootstrap.pypa.io/get-pip.py", get_pip):
                 log("请手动将 get-pip.py 放入程序目录后重试")
                 sys.exit(1)
         log("正在引导安装 pip ...")
