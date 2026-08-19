@@ -84,6 +84,13 @@
 
 <body>
 
+    <!-- 页面加载蒙版：主题加载完成前覆盖全屏 -->
+    <div id="app_loading_mask"
+         style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px">
+        <span style="color:#ffffff;font-size:16px;font-family:'Segoe UI',Arial,sans-serif;letter-spacing:1px">加载中...</span>
+        <span class="noVNC_spinner" style="opacity:0.8"></span>
+    </div>
+
     <div id="noVNC_fallback_error" class="noVNC_center">
         <div>
             <div>noVNC encountered an error:</div>
@@ -531,9 +538,23 @@
                                 在预览框显示帧率 / 画质 / 延迟
                             </label>
                         </div>
+                        <div class="conn_hd"
+                             style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #626a76;color:#ffffff"
+                             data-th="color:fg;border-color:border">传输编码</div>
+                        <div class="enc_btns" id="enc_btns" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+                            <button class="enc_btn" data-enc="zlib" title="ZLIB 压缩，带宽占用最低（推荐）"
+                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:left"
+                                    data-th="background:panel;color:fg;border-color:input">ZLIB（默认，最省带宽）</button>
+                            <button class="enc_btn" data-enc="hextile" title="Hextile 分块编码，画面更新快"
+                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:left"
+                                    data-th="background:panel;color:fg;border-color:input">Hextile（画面更新快）</button>
+                            <button class="enc_btn" data-enc="raw" title="原始像素编码，CPU 占用最低"
+                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:left"
+                                    data-th="background:panel;color:fg;border-color:input">原始（Raw，CPU 占用最低）</button>
+                        </div>
                         <div class="conn_hint"
                              style="color:#b6bac2;font-size:12px;line-height:1.6"
-                             data-th="color:muted">开启后，预览画面左上角实时显示每秒帧数、当前画质等级与网络往返延迟（毫秒）。</div>
+                             data-th="color:muted">编码选择自动保存，对已连接的会话即时生效。开启性能信息后，预览画面左上角实时显示每秒帧数、当前画质等级与网络往返延迟（毫秒）。</div>
                     </div>
                 </div>
 

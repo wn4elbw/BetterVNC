@@ -266,8 +266,16 @@
         function load() {
             fetch("/api/theme")
                 .then((r) => r.ok ? r.json() : { theme: "dark" })
-                .then((d) => { apply(d.theme === "light" ? "light" : "dark"); syncUI(); })
-                .catch(() => { apply("dark"); syncUI(); });
+                .then((d) => {
+                    apply(d.theme === "light" ? "light" : "dark");
+                    syncUI();
+                    hideLoading();
+                })
+                .catch(() => {
+                    apply("dark");
+                    syncUI();
+                    hideLoading();
+                });
         }
 
         function set(name) {
@@ -1183,6 +1191,61 @@
     })();
 
     /* ===== 启动 ===== */
+    function hideLoading() {
+        const mask = $("app_loading_mask");
+        if (mask) mask.style.display = "none";
+    }
+
+    function setupEncoder() {
+        const btns = document.querySelectorAll(".enc_btn");
+        if (!btns.length) return;
+        const t = () => theme.palette();
+        function highlight(name) {
+            btns.forEach((b) => {
+                const on = b.dataset.enc === name;
+                if (on) {
+                    b.style.background = t().navactive;
+                    b.style.borderColor = t().navactiveborder;
+                    b.style.color = "#ffffff";
+                } else {
+                    b.style.background = t().panel;
+                    b.style.borderColor = t().input;
+                    b.style.color = t().fg;
+                }
+            });
+        }
+        btns.forEach((b) => {
+            b.addEventListener("click", async () => {
+                const enc = b.dataset.enc;
+                highlight(enc);
+                try {
+                    await fetch("/api/encoder", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ encoder: enc }),
+                    });
+                } catch (err) { /* 忽略 */ }
+            });
+        });
+        document.addEventListener("wv-theme-change", () => {
+            const active = document.querySelector(".enc_btn.active");
+            if (active) highlight(active.dataset.enc);
+        });
+        fetch("/api/encoder")
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+                if (d && d.encoder) {
+                    const b = document.querySelector(
+                        '.enc_btn[data-enc="' + d.encoder + '"]');
+                    if (b) {
+                        b.classList.add("active");
+                        highlight(d.encoder);
+                    }
+                }
+            })
+            .catch(() => { /* 忽略 */ });
+    }
+
     const perf = (function () {
         const overlay = $("perf_overlay");
         const toggle = $("perf_show_btn");
@@ -1296,6 +1359,7 @@
         connStatus.init();
         setupClipboard();
         perf.init();
+        setupEncoder();
     }
 
     if (document.readyState === "loading") {

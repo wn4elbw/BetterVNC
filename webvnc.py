@@ -170,6 +170,30 @@ def save_theme(theme):
         json.dump({"theme": theme}, fh)
 
 
+ENCODER_FILE = "encoder.json"  # 传输编码配置
+_ENCODERS = ("zlib", "hextile", "raw")
+
+
+def load_encoder():
+    """读取传输编码配置，默认 zlib"""
+    try:
+        with open(ENCODER_FILE, "r", encoding="utf-8") as fh:
+            d = json.load(fh)
+            if d.get("encoder") in _ENCODERS:
+                return d["encoder"]
+    except (OSError, ValueError):
+        pass
+    return "zlib"
+
+
+def save_encoder(encoder):
+    """保存传输编码配置到文件"""
+    if encoder not in _ENCODERS:
+        encoder = "zlib"
+    with open(ENCODER_FILE, "w", encoding="utf-8") as fh:
+        json.dump({"encoder": encoder}, fh)
+
+
 def get_netstat():
     """扫描本机所有处于监听状态的开放端口"""
     ports = []
@@ -771,6 +795,7 @@ class VNCClient:
         self._buf = b""
         self._last_clip_version = server._clip_version
         self._zco = None  # 跨 rect/FBU 复用的 zlib 流式压缩器
+        self._encs = set()  # 客户端支持的编码集合（SetEncodings）
 
     def close(self):
         try:
@@ -817,9 +842,8 @@ class VNCClient:
             elif msg_type == 2:
                 self._recv(1)
                 n = struct.unpack("!H", self._recv(2))[0]
-                encs = [struct.unpack("!i", self._recv(4))[0]
-                        for _ in range(n)]
-                self.use_zlib = 6 in encs  # ZLIB 编码（RFB 标准值 6），优先于 Raw
+                self._encs = {struct.unpack("!i", self._recv(4))[0]
+                              for _ in range(n)}
             elif msg_type == 3:
                 incremental = self._recv(1)[0]
                 self._recv(8)
@@ -951,25 +975,46 @@ class VNCClient:
         import zlib
         out = bytearray(struct.pack("!BBH", 0, 0, len(rects)))
         row_bytes = w * self.pixel_size
-        use_zlib = getattr(self, "use_zlib", False)
+        enc_choice = load_encoder()
+        encs = getattr(self, "_encs", set())
         for (x, y, rw, rh) in rects:
-            raw = bytearray()
-            for yy in range(y, y + rh):
-                off = yy * row_bytes + x * self.pixel_size
-                raw += data[off:off + rw * self.pixel_size]
-            if use_zlib and rw * rh > 64:
+            if enc_choice == "hextile" and 5 in encs:
+                out += struct.pack("!HHHH", x, y, rw, rh)
+                out += struct.pack("!i", 5)  # HEXTILE
+                out += self._encode_hextile(data, w, x, y, rw, rh, row_bytes)
+            elif enc_choice == "zlib" and 6 in encs:
+                raw = bytearray()
+                for yy in range(y, y + rh):
+                    off = yy * row_bytes + x * self.pixel_size
+                    raw += data[off:off + rw * self.pixel_size]
                 if self._zco is None:
                     self._zco = zlib.compressobj(6)
                 body = self._zco.compress(bytes(raw))
                 body += self._zco.flush(zlib.Z_SYNC_FLUSH)
                 out += struct.pack("!HHHH", x, y, rw, rh)
-                out += struct.pack("!i", 6)  # ZLIB 编码（RFB 标准值）
+                out += struct.pack("!i", 6)  # ZLIB
                 out += struct.pack("!I", len(body))
                 out += body
             else:
                 out += struct.pack("!HHHHI", x, y, rw, rh, 0)
-                out += raw
+                for yy in range(y, y + rh):
+                    off = yy * row_bytes + x * self.pixel_size
+                    out += data[off:off + rw * self.pixel_size]
         self._send(bytes(out))
+
+    def _encode_hextile(self, data, w, x, y, rw, rh, row_bytes):
+        """Hextile 编码：16x16 块，每块子编码 Raw(0x01)"""
+        ps = self.pixel_size
+        out = bytearray()
+        for by in range(y, y + rh, 16):
+            bh = min(16, y + rh - by)
+            for bx in range(x, x + rw, 16):
+                bw = min(16, x + rw - bx)
+                out.append(0x01)  # 子编码 Raw
+                for yy in range(by, by + bh):
+                    off = yy * row_bytes + bx * ps
+                    out += data[off:off + bw * ps]
+        return out
 
 
 # ---------------------------------------------------------------------------
@@ -1344,6 +1389,9 @@ class WebHandler(BaseHTTPRequestHandler):
             return self._send_json({"text": text})
         if path == "/api/theme":
             return self._send_json({"theme": load_theme()})
+        if path == "/api/encoder":
+            return self._send_json({"encoder": load_encoder(),
+                                    "encoders": list(_ENCODERS)})
         if path == "/api/vnc/status":
             srv = WebHandler.vnc_server
             return self._send_json({
@@ -1384,6 +1432,15 @@ class WebHandler(BaseHTTPRequestHandler):
                 theme = data.get("theme", "dark")
                 save_theme(theme)
                 return self._send_json({"theme": theme, "saved": True})
+            except (ValueError, OSError) as exc:
+                return self._send_json({"error": str(exc)}, 500)
+        if path == "/api/encoder":
+            try:
+                body = self._read_body() or b"{}"
+                data = json.loads(body)
+                encoder = data.get("encoder", "zlib")
+                save_encoder(encoder)
+                return self._send_json({"encoder": encoder, "saved": True})
             except (ValueError, OSError) as exc:
                 return self._send_json({"error": str(exc)}, 500)
         if path == "/api/log/new":
