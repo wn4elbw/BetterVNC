@@ -1183,6 +1183,19 @@
     })();
 
     /* ===== 启动 ===== */
+    function setupClipboard() {
+        const btn = $("noVNC_send_clipboard_button");
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+            const ui = window.UI;
+            const text = $("noVNC_clipboard_text").value;
+            if (!ui || !ui.rfb || text === "") return;
+            try {
+                ui.rfb.clipboardPasteFrom(text);
+            } catch (err) { /* 忽略 */ }
+        });
+    }
+
     function boot() {
         setupQ3Nav();
         setupScreenTools();
@@ -1195,6 +1208,7 @@
         srvlog.init();
         portPanel.init();
         connStatus.init();
+        setupClipboard();
     }
 
     if (document.readyState === "loading") {

@@ -295,6 +295,9 @@
                 <button class="q3_nav_btn" data-pane="conn"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
                         data-th="color:navfg">&#128279; 连接</button>
+                <button class="q3_nav_btn" data-pane="clip"
+                        style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
+                        data-th="color:navfg">&#128203; 剪贴板</button>
                 <button class="q3_nav_btn" data-pane="theme"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
                         data-th="color:navfg">&#127912; 主题</button>
@@ -371,14 +374,22 @@
                 </div>
 
                 <div class="q3_pane" data-pane="clip">
-                    <div id="noVNC_clipboard" class="noVNC_panel">
-                        <div class="noVNC_heading">
-                            <img alt="" src="app/images/clipboard.svg"> Clipboard
-                        </div>
-                        <p class="noVNC_subheading">
-                            Edit clipboard content in the textbox below.
+                    <div id="noVNC_clipboard" class="noVNC_panel" style="font-family:inherit;font-size:12px">
+                        <div class="noVNC_heading"
+                             style="font-weight:600;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #626a76;color:#ffffff;font-size:12px"
+                             data-th="color:fg;border-color:border">剪贴板管理</div>
+                        <p class="noVNC_subheading" style="color:#b6bac2;font-size:11px;margin:0 0 6px"
+                           data-th="color:muted">
+                            在下方编辑剪贴板内容，编辑完成后点击"发送到远程"。<br>服务端剪贴板变化会自动同步到此框。
                         </p>
-                        <textarea id="noVNC_clipboard_text" rows=5></textarea>
+                        <textarea id="noVNC_clipboard_text" rows=5
+                                  style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#ffffff;border-radius:3px;padding:5px 8px;font-size:12px;font-family:inherit;outline:none;resize:vertical"
+                                  data-th="background:panel;color:fg;border-color:input"></textarea>
+                        <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px">
+                            <button id="noVNC_send_clipboard_button" title="将上方内容发送到远程剪贴板"
+                                    style="background:#636a75;border:none;color:#ffffff;border-radius:3px;padding:3px 12px;font-size:12px;cursor:pointer;font-family:inherit"
+                                    data-th="background:accent;color:accentfg">发送到远程</button>
+                        </div>
                     </div>
                 </div>
 
