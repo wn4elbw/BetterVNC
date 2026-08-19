@@ -586,7 +586,8 @@ class XInput:
 # ---------------------------------------------------------------------------
 _SILENT_ERRNOS = {errno.EBADF}
 if os.name == "nt":
-    _SILENT_ERRNOS.update({10053, 10054})  # WSAECONNABORTED / WSAECONNRESET
+    # WSAENOTSOCK(10038) / WSAECONNABORTED(10053) / WSAECONNRESET(10054)
+    _SILENT_ERRNOS.update({10038, 10053, 10054})
 
 
 # ---------------------------------------------------------------------------
