@@ -77,6 +77,7 @@
         let visible = false;
 
         const ROWS = [
+            ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"],
             ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Back"],
             ["Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"],
             ["Caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter"],
@@ -100,8 +101,18 @@
                 "\\": 0x005C, "'": 0x0027, ";": 0x003B, ",": 0x002C,
                 ".": 0x002E, "/": 0x002F, "-": 0x002D, "=": 0x003D,
                 "[": 0x005B, "]": 0x005D,
+                "Num": 0xFF7F,
+                "+": 0xFFAB, "*": 0xFFAA, "Del": 0xFFFF,
             };
             if (map[key] !== undefined) return map[key];
+            // F1-F12
+            if (/^F(1[0-2]|[1-9])$/.test(key)) {
+                return 0xFFBE + (parseInt(key.slice(1), 10) - 1);
+            }
+            // 小键盘数字（独立 keysym，与主键盘区分）
+            if (/^[0-9]$/.test(key)) {
+                return key.charCodeAt(0);
+            }
             const ch = key.charCodeAt(0);
             return ch;
         }
