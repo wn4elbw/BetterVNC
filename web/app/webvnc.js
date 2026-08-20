@@ -1487,120 +1487,6 @@
         });
     }
 
-    /* ====================================================================
-     * 电源面板：调用 /api/power 控制预览机（带二次确认）
-     * ================================================================== */
-    function confirmDialog(title, msg, onOk, okLabel) {
-        const cv = document.createElement("div");
-        cv.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;" +
-            "background:rgba(40,42,46,0.5);z-index:9100;display:flex;" +
-            "align-items:center;justify-content:center";
-        const box = document.createElement("div");
-        box.style.cssText = "background:#33373d;border:1px solid #636a75;border-radius:10px;" +
-            "padding:16px 20px;color:#fff;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;" +
-            "min-width:300px;max-width:420px";
-        const hd = document.createElement("div");
-        hd.textContent = title;
-        hd.style.cssText = "font-weight:600;margin-bottom:10px";
-        box.appendChild(hd);
-        const msgEl = document.createElement("div");
-        msgEl.textContent = msg;
-        msgEl.style.cssText = "color:#b6bac2;margin-bottom:14px;line-height:1.6";
-        box.appendChild(msgEl);
-        const row = document.createElement("div");
-        row.style.cssText = "display:flex;justify-content:flex-end;gap:8px";
-        const cancel = document.createElement("button");
-        cancel.textContent = "取消";
-        cancel.style.cssText = "border:1px solid #636a75;border-radius:4px;padding:5px 16px;font-size:12px;" +
-            "cursor:pointer;font-family:inherit;color:#fff;background:transparent";
-        cancel.addEventListener("click", () => { cv.remove(); });
-        const ok = document.createElement("button");
-        ok.textContent = okLabel || "确定";
-        ok.style.cssText = "border:none;border-radius:4px;padding:5px 18px;font-size:12px;" +
-            "cursor:pointer;font-family:inherit;color:#fff;background:#a0453f";
-        ok.addEventListener("click", async () => {
-            cv.remove();
-            try { await onOk(); } catch (e) { /* 忽略 */ }
-        });
-        row.appendChild(cancel);
-        row.appendChild(ok);
-        box.appendChild(row);
-        cv.appendChild(box);
-        document.body.appendChild(cv);
-    }
-
-    function setupPowerPanel() {
-        const labels = {
-            "reboot": "重启系统",
-            "shutdown": "关机",
-            "restart_service": "重启服务",
-        };
-        const msgs = {
-            "reboot": "将重启预览机操作系统。当前连接会断开，请确认已保存工作。",
-            "shutdown": "将关闭预览机操作系统。当前连接会断开，请确认已保存工作。",
-            "restart_service": "将仅重启 Web/VNC 服务进程，不重启系统。服务约 2 秒后恢复。",
-        };
-        document.querySelectorAll(".power_btn[data-action]").forEach((b) => {
-            b.addEventListener("click", () => {
-                const action = b.dataset.action;
-                confirmDialog(
-                    "确认" + (labels[action] || action),
-                    msgs[action] || "",
-                    async () => {
-                        const resp = await fetch("/api/power", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ action }),
-                        });
-                        const data = await resp.json().catch(() => ({}));
-                        if (data && data.error) {
-                            alert("操作失败: " + data.error);
-                        }
-                    },
-                    "执行"
-                );
-            });
-        });
-    }
-
-    /* ====================================================================
-     * 剪贴板面板：读取服务端剪贴板并发送
-     * ================================================================== */
-    function setupClipboard() {
-        const btn = $("noVNC_send_clipboard_button");
-        const ta = $("noVNC_clipboard_text");
-
-        /* 切换到剪贴板面板时，从服务端读取当前内容 */
-        document.addEventListener("click", (ev) => {
-            const nav = ev.target.closest('.q3_nav_btn[data-pane="clip"]');
-            if (nav && ta) {
-                fetch("/api/clipboard")
-                    .then((r) => r.json())
-                    .then((d) => { if (d && d.text != null) ta.value = d.text; })
-                    .catch(() => { /* 忽略 */ });
-            }
-        });
-
-        if (!btn) return;
-        btn.addEventListener("click", async () => {
-            const ui = window.UI;
-            const text = ta.value;
-            if (text === "") return;
-            try {
-                await fetch("/api/clipboard", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text }),
-                });
-            } catch (err) { /* 忽略 */ }
-            if (ui && ui.rfb) {
-                try {
-                    ui.rfb.clipboardPasteFrom(text);
-                } catch (err) { /* 忽略 */ }
-            }
-        });
-    }
-
     function boot() {
         setupQ3Nav();
         setupScreenTools();
@@ -1614,9 +1500,7 @@
         portPanel.init();
         loadPanel.init();
         connStatus.init();
-        setupClipboard();
         setupKeysPanel();
-        setupPowerPanel();
         perf.init();
         setupEncoder();
     }
