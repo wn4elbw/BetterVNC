@@ -85,11 +85,11 @@
             ["Ctrl", "Alt", " ", "Alt", "Ctrl"],
         ];
         const NUMPAD = [
-            ["Num", "/", "*", "-"],
-            ["7", "8", "9", "+"],
-            ["4", "5", "6", "+"],
-            ["1", "2", "3", "Enter"],
-            ["0", ".", "Enter"],
+            ["NumLock", "KPDiv", "KPMul", "KPSub"],
+            ["KP7", "KP8", "KP9", "KPAdd"],
+            ["KP4", "KP5", "KP6", "KPAdd"],
+            ["KP1", "KP2", "KP3", "KPEnter"],
+            ["KP0", "KP0", "KPDec", "KPEnter"],
         ];
 
         function keyToKeysym(key) {
@@ -101,10 +101,15 @@
                 "\\": 0x005C, "'": 0x0027, ";": 0x003B, ",": 0x002C,
                 ".": 0x002E, "/": 0x002F, "-": 0x002D, "=": 0x003D,
                 "[": 0x005B, "]": 0x005D,
-                "Num": 0xFF7F,
-                "+": 0xFFAB, "*": 0xFFAA, "Del": 0xFFFF,
+                "NumLock": 0xFF7F, "KPDiv": 0xFFAF, "KPMul": 0xFFAA,
+                "KPSub": 0xFFAD, "KPAdd": 0xFFAB, "KPDec": 0xFFAE,
+                "KPEnter": 0xFF8D,
             };
             if (map[key] !== undefined) return map[key];
+            // 小键盘数字：KP_0..KP_9 = 0xFFB0..0xFFB9
+            if (/^KP([0-9])$/.test(key)) {
+                return 0xFFB0 + parseInt(key.slice(2), 10);
+            }
             // F1-F12
             if (/^F(1[0-2]|[1-9])$/.test(key)) {
                 return 0xFFBE + (parseInt(key.slice(1), 10) - 1);
@@ -161,8 +166,13 @@
                 r.style.cssText = "display:flex;gap:6px";
                 for (const k of row) {
                     const b = document.createElement("button");
-                    b.textContent = k;
-                    const wide = ["Enter", "0", "Num"].includes(k);
+                    const label = { "KP0": "0", "KP1": "1", "KP2": "2", "KP3": "3",
+                        "KP4": "4", "KP5": "5", "KP6": "6", "KP7": "7",
+                        "KP8": "8", "KP9": "9", "KPDiv": "/", "KPMul": "*",
+                        "KPSub": "-", "KPAdd": "+", "KPDec": ".", "KPEnter": "Enter",
+                        "NumLock": "NumLock" }[k] || k;
+                    b.textContent = label;
+                    const wide = ["KP0", "KPEnter", "NumLock"].includes(k);
                     b.style.cssText = "flex:" + (wide ? "2" : "1") +
                         ";padding:8px 4px;background:" + t.panel +
                         ";border:1px solid " + t.input + ";border-radius:6px;color:" + t.fg +
