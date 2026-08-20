@@ -379,6 +379,7 @@
             }
 
             /* 历史记录 & 快捷发送（小键盘右侧两列滚轮框） */
+            keys.appendChild(main);
             keys.appendChild(npad);
             keys.appendChild(makeListCol("历史记录", history,
                 (label) => recordHistory(label), true, t));
