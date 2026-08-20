@@ -1072,8 +1072,8 @@
             const frag = document.createDocumentFragment();
             for (const p of ports) {
                 const row = document.createElement("div");
-                row.style.cssText = "display:flex;gap:6px;padding:1px 0;" +
-                    "white-space:nowrap;color:" + t.fg + ";font-size:11px";
+                row.style.cssText = "display:flex;gap:6px;padding:1px 0;max-width:100%;box-sizing:border-box;" +
+                    "color:" + t.fg + ";font-size:11px";
                 const b = document.createElement("b");
                 b.textContent = String(p.port);
                 b.style.cssText = "min-width:44px;font-weight:600;color:" + t.fg;
@@ -1082,7 +1082,7 @@
                 proto.style.cssText = "min-width:34px;color:" + t.muted;
                 const addr = document.createElement("span");
                 addr.textContent = p.addr;
-                addr.style.cssText = "overflow:hidden;text-overflow:ellipsis;color:" + t.muted;
+                addr.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:" + t.muted;
                 row.appendChild(b);
                 row.appendChild(proto);
                 row.appendChild(addr);

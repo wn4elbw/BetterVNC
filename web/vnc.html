@@ -318,8 +318,8 @@
 
             <!-- 右侧：显示区域 -->
             <div id="q3_content"
-                 style="flex:0 0 auto;width:calc(100% - 89px);min-width:0;overflow-y:auto;padding:6px;color:#ffffff"
-                 data-th="color:fg">
+                 style="flex:1 1 auto;min-width:0;overflow-x:hidden;overflow-y:auto;margin:6px;padding:6px;border-radius:6px;border:1px solid #626a76;background:#2b2e33;box-sizing:border-box;color:#ffffff"
+                 data-th="color:fg;background:bg;border-color:border">
 
                 <div class="q3_pane active" data-pane="zoom">
                     <div id="zoom_panel" style="font-size:13px;font-family:inherit">
@@ -328,15 +328,15 @@
                              data-th="color:fg;border-color:border">缩放调整</div>
                         <div class="zoom_row" style="margin-bottom:8px">屏幕缩放模式</div>
                         <div class="zoom_btns"
-                             style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:10px">
+                             style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
                             <button class="zoom_btn" data-mode="off" title="原始尺寸，不缩放"
-                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"
+                                    style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
                                     data-th="background:panel;color:fg;border-color:input">原始尺寸</button>
                             <button class="zoom_btn" data-mode="scale" title="画面缩放适配屏幕区"
-                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"
+                                    style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
                                     data-th="background:panel;color:fg;border-color:input">适应窗口</button>
                             <button class="zoom_btn" data-mode="remote" title="调整远程分辨率适配窗口"
-                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit"
+                                    style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
                                     data-th="background:panel;color:fg;border-color:input">调整远程分辨率</button>
                         </div>
                         <div class="zoom_hint"
@@ -409,7 +409,7 @@
                              style="font-weight:600;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #626a76;color:#ffffff;font-size:12px"
                              data-th="color:fg;border-color:border">本机开放端口</div>
                         <div id="port_list"
-                             style="max-height:150px;overflow-y:auto"></div>
+                             style="max-height:150px;overflow-y:auto;overflow-x:hidden"></div>
                     </div>
                 </div>
 
@@ -584,13 +584,13 @@
                              data-th="color:fg;border-color:border">传输编码</div>
                         <div class="enc_btns" id="enc_btns" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
                             <button class="enc_btn" data-enc="zlib" title="ZLIB 压缩，带宽占用最低（推荐）"
-                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:left"
+                                    style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
                                     data-th="background:panel;color:fg;border-color:input">ZLIB（默认，最省带宽）</button>
                             <button class="enc_btn" data-enc="hextile" title="Hextile 分块编码，画面更新快"
-                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:left"
+                                    style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
                                     data-th="background:panel;color:fg;border-color:input">Hextile（画面更新快）</button>
                             <button class="enc_btn" data-enc="raw" title="原始像素编码，CPU 占用最低"
-                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:left"
+                                    style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
                                     data-th="background:panel;color:fg;border-color:input">原始（Raw，CPU 占用最低）</button>
                         </div>
                         <div class="conn_hint"
@@ -607,10 +607,10 @@
                              data-th="color:fg;border-color:border">界面主题</div>
                         <div class="theme_btns" style="display:flex;gap:8px;margin-bottom:10px">
                             <button class="theme_btn" data-theme="dark" title="深色主题（默认）"
-                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer;font-family:inherit"
+                                    style="flex:1;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
                                     data-th="background:panel;color:fg;border-color:input">深色</button>
                             <button class="theme_btn" data-theme="light" title="浅色主题"
-                                    style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer;font-family:inherit"
+                                    style="flex:1;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
                                     data-th="background:panel;color:fg;border-color:input">浅色</button>
                         </div>
                         <div class="conn_hint"
