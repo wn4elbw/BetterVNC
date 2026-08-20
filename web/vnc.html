@@ -239,9 +239,22 @@
                  style="display:none;position:absolute;left:8px;top:8px;z-index:30;background:rgba(20,22,26,0.72);color:#e8e8ec;border:1px solid rgba(98,106,118,0.6);border-radius:4px;padding:5px 9px;font-family:Consolas,'Courier New',monospace;font-size:12px;line-height:1.5;pointer-events:none;white-space:pre"
                  data-th="color:fg">帧率: -- FPS&#10;画质: --&#10;延迟: -- ms</div>
             <div id="screen_tools">
-                <button id="st_page_fs_btn" title="网页全屏（整个网页进入浏览器全屏）">网页全屏</button>
-                <button id="st_full_page_btn" title="全屏网页（屏幕区铺满浏览器窗口）">全屏网页</button>
+                <button id="st_zoom_btn" title="预览区在浏览器页面内缩放（铺满/恢复）">缩放</button>
+                <button id="st_kbd_btn" title="打开软键盘">软键盘</button>
             </div>
+        </div>
+
+        <!-- 软键盘弹窗：网页下方 50% 区域，半透明灰色圆角 -->
+        <div id="osk_mask"
+             style="display:none;position:fixed;left:0;right:0;bottom:0;top:50%;z-index:5000;background:rgba(60,62,66,0.25);border-top-left-radius:16px;border-top-right-radius:16px;box-shadow:0 -4px 24px rgba(0,0,0,0.35)">
+            <div id="osk_header"
+                 style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;color:#e8e8ec;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;user-select:none">
+                <span>软键盘 / 小键盘</span>
+                <button id="osk_close_btn" title="关闭"
+                        style="background:transparent;border:none;color:#e8e8ec;font-size:16px;cursor:pointer;padding:0 6px;font-family:inherit;line-height:1">&#10005;</button>
+            </div>
+            <div id="osk_body"
+                 style="position:absolute;left:14px;right:14px;top:34px;bottom:14px;overflow:auto"></div>
         </div>
 
         <!-- 水平分割条（固定） -->

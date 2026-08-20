@@ -39,21 +39,11 @@
      * 一象限：屏幕浮动按钮（网页全屏 / 全屏网页，右下角）
      * ================================================================== */
     function setupScreenTools() {
-        // 网页全屏：整个网页进入浏览器原生全屏
-        $("st_page_fs_btn").addEventListener("click", () => {
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-            } else {
-                document.documentElement.requestFullscreen()
-                    .catch(() => {});
-            }
-        });
-
-        // 全屏网页：屏幕区铺满浏览器窗口（隐藏其他象限，JS 控制显示）
+        // 页面内缩放：预览区铺满浏览器窗口（隐藏其他象限），再点恢复
         const layout = $("webvnc_layout");
         const fsIds = ["q_file", "q_ctrl", "q_bottom", "div_v", "div_h"];
         const savedDisplay = {};
-        $("st_full_page_btn").addEventListener("click", () => {
+        $("st_zoom_btn").addEventListener("click", () => {
             const on = layout.dataset.fs !== "1";
             fsIds.forEach((id) => {
                 const el = $(id);
@@ -72,10 +62,133 @@
                 scr.style.cssText = savedDisplay._scr || "";
             }
             layout.dataset.fs = on ? "1" : "";
-            $("st_full_page_btn").textContent = on ? "退出全屏" : "全屏网页";
+            $("st_zoom_btn").textContent = on ? "退出缩放" : "缩放";
             window.dispatchEvent(new Event("resize"));
         });
     }
+
+    /* ====================================================================
+     * 软键盘 / 小键盘（点击预览区右下角「软键盘」弹出）
+     * ================================================================== */
+    const onscreenKeyboard = (function () {
+        const mask = $("osk_mask");
+        const body = $("osk_body");
+        const closeBtn = $("osk_close_btn");
+        let visible = false;
+
+        const ROWS = [
+            ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Back"],
+            ["Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"],
+            ["Caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter"],
+            ["Shift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift"],
+            ["Ctrl", "Alt", " ", "Alt", "Ctrl"],
+        ];
+        const NUMPAD = [
+            ["Num", "/", "*", "-"],
+            ["7", "8", "9", "+"],
+            ["4", "5", "6", "+"],
+            ["1", "2", "3", "Enter"],
+            ["0", ".", "Enter"],
+        ];
+
+        function keyToKeysym(key) {
+            // 转 noVNC keysym（部分），简单键直接发送
+            const map = {
+                "Back": 0xFF08, "Tab": 0xFF09, "Enter": 0xFF0D,
+                "Esc": 0xFF1B, "Caps": 0xFFE5, "Shift": 0xFFE1,
+                "Ctrl": 0xFFE3, "Alt": 0xFFE9, " ": 0x0020,
+                "\\": 0x005C, "'": 0x0027, ";": 0x003B, ",": 0x002C,
+                ".": 0x002E, "/": 0x002F, "-": 0x002D, "=": 0x003D,
+                "[": 0x005B, "]": 0x005D,
+            };
+            if (map[key] !== undefined) return map[key];
+            const ch = key.charCodeAt(0);
+            return ch;
+        }
+
+        function press(key) {
+            const ui = window.UI;
+            if (!ui || !ui.rfb || typeof ui.rfb.sendKey !== "function") return;
+            try {
+                const ks = keyToKeysym(key);
+                ui.rfb.sendKey(ks, true);
+                ui.rfb.sendKey(ks, false);
+            } catch (err) { /* 忽略 */ }
+        }
+
+        function render() {
+            body.innerHTML = "";
+            const t = theme.palette();
+            const kb = document.createElement("div");
+            kb.style.cssText = "display:flex;flex-direction:column;gap:6px";
+            for (const row of ROWS) {
+                const r = document.createElement("div");
+                r.style.cssText = "display:flex;gap:6px";
+                for (const k of row) {
+                    const b = document.createElement("button");
+                    b.textContent = k;
+                    const wide = ["Back", "Tab", "Caps", "Enter", "Shift", "Ctrl", "Alt", " "].includes(k);
+                    b.style.cssText = "flex:" + (k === " " ? "6" : wide ? "1.6" : "1") +
+                        ";padding:8px 4px;background:" + t.panel +
+                        ";border:1px solid " + t.input + ";border-radius:6px;color:" + t.fg +
+                        ";font-size:13px;cursor:pointer;font-family:inherit";
+                    if (k === " ") b.style.minHeight = "32px";
+                    b.addEventListener("click", () => press(k));
+                    r.appendChild(b);
+                }
+                kb.appendChild(r);
+            }
+            const sep = document.createElement("div");
+            sep.style.cssText = "height:1px;background:" + t.border + ";margin:4px 0";
+            kb.appendChild(sep);
+            const npTitle = document.createElement("div");
+            npTitle.textContent = "小键盘";
+            npTitle.style.cssText = "color:" + t.muted + ";font-size:12px";
+            kb.appendChild(npTitle);
+            for (const row of NUMPAD) {
+                const r = document.createElement("div");
+                r.style.cssText = "display:flex;gap:6px";
+                for (const k of row) {
+                    const b = document.createElement("button");
+                    b.textContent = k;
+                    const wide = ["Enter", "0", "Num"].includes(k);
+                    b.style.cssText = "flex:" + (wide ? "2" : "1") +
+                        ";padding:8px 4px;background:" + t.panel +
+                        ";border:1px solid " + t.input + ";border-radius:6px;color:" + t.fg +
+                        ";font-size:13px;cursor:pointer;font-family:inherit";
+                    b.addEventListener("click", () => press(k));
+                    r.appendChild(b);
+                }
+                kb.appendChild(r);
+            }
+            body.appendChild(kb);
+        }
+
+        function show() {
+            if (!mask || !body) return;
+            visible = true;
+            render();
+            mask.style.display = "block";
+        }
+
+        function hide() {
+            if (!mask) return;
+            visible = false;
+            mask.style.display = "none";
+        }
+
+        function init() {
+            if (!mask || !closeBtn) return;
+            $("st_kbd_btn").addEventListener("click", () => {
+                if (visible) hide();
+                else show();
+            });
+            closeBtn.addEventListener("click", hide);
+            document.addEventListener("wv-theme-change", () => { if (visible) render(); });
+        }
+
+        return { init };
+    })();
 
     /* ====================================================================
      * 三象限：缩放调整（原始 / 适配 / 远程）
@@ -961,7 +1074,17 @@
             $("term_send_btn").addEventListener("click", execute);
             $("term_stop_btn").addEventListener("click", stopJob);
             $("term_clear_btn").addEventListener("click", () => {
+                // 清屏但保留首行系统信息
+                const first = output.querySelector("div");
+                const head = first ? first.textContent : "";
                 output.innerHTML = "";
+                if (head) {
+                    const d = document.createElement("div");
+                    d.className = "term_prompt";
+                    d.textContent = head;
+                    d.style.color = theme.palette().accent;
+                    output.appendChild(d);
+                }
             });
             try {
                 const resp = await fetch("/api/info");
@@ -1359,6 +1482,7 @@
     function boot() {
         setupQ3Nav();
         setupScreenTools();
+        onscreenKeyboard.init();
         setupZoom();
         setupConnPane();
         theme.init();
