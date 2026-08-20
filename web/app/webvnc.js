@@ -1217,6 +1217,7 @@
         btns.forEach((b) => {
             b.addEventListener("click", async () => {
                 const enc = b.dataset.enc;
+                currentEncoder = enc;
                 highlight(enc);
                 try {
                     await fetch("/api/encoder", {
@@ -1235,6 +1236,7 @@
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 if (d && d.encoder) {
+                    currentEncoder = d.encoder;
                     const b = document.querySelector(
                         '.enc_btn[data-enc="' + d.encoder + '"]');
                     if (b) {
@@ -1246,6 +1248,8 @@
             .catch(() => { /* 忽略 */ });
     }
 
+    let currentEncoder = "zlib";  // 当前传输编码（性能面板显示用）
+
     const perf = (function () {
         const overlay = $("perf_overlay");
         const toggle = $("perf_show_btn");
@@ -1254,18 +1258,19 @@
         let lastCount = 0;
         let fps = 0;
         let latency = -1;
-        let quality = "-";
+        let reso = "--";
+        let encoder = "-";
         let hooked = false;
         let timers = null;
 
         function hookRfb() {
             const rfb = (window.UI || {}).rfb;
-            if (!rfb || hooked || typeof rfb._handleFramebufferUpdate !== "function") {
+            if (!rfb || hooked || typeof rfb._framebufferUpdate !== "function") {
                 return;
             }
             hooked = true;
-            const orig = rfb._handleFramebufferUpdate.bind(rfb);
-            rfb._handleFramebufferUpdate = function () {
+            const orig = rfb._framebufferUpdate.bind(rfb);
+            rfb._framebufferUpdate = function () {
                 frames++;
                 return orig.apply(rfb, arguments);
             };
@@ -1282,9 +1287,14 @@
             if (!enabled || !overlay) return;
             hookRfb();
             const rfb = (window.UI || {}).rfb;
-            if (rfb && rfb.qualityLevel !== undefined) {
-                quality = rfb.qualityLevel;
+            if (rfb) {
+                const w = rfb._fbWidth, h = rfb._fbHeight;
+                if (w && h) reso = w + "x" + h;
+                else if (rfb._display && rfb._display.get_width) {
+                    reso = rfb._display.get_width() + "x" + rfb._display.get_height();
+                }
             }
+            encoder = currentEncoder;
             const now = performance.now();
             if (now - lastCount >= 1000) {
                 fps = Math.round(frames * 1000 / (now - lastCount));
@@ -1292,7 +1302,8 @@
                 frames = 0;
             }
             overlay.textContent = "帧率: " + (fps > 0 ? fps : "--") + " FPS\n画质: " +
-                quality + "\n延迟: " + (latency >= 0 ? latency : "--") + " ms";
+                reso + " / " + encoder.toUpperCase() + "\n延迟: " +
+                (latency >= 0 ? latency : "--") + " ms";
         }
 
         function init() {
@@ -1305,7 +1316,7 @@
                     lastCount = performance.now();
                     fps = 0;
                     latency = -1;
-                    quality = "-";
+                    reso = "--";
                     hookRfb();
                     ping();
                     tick();
