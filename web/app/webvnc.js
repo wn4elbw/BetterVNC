@@ -68,651 +68,6 @@
     }
 
     /* ====================================================================
-     * 软键盘 / 小键盘（点击预览区右下角「软键盘」弹出）
-     * ================================================================== */
-    const onscreenKeyboard = (function () {
-        const mask = $("osk_mask");
-        const body = $("osk_body");
-        const closeBtn = $("osk_close_btn");
-        let visible = false;
-
-        const ROWS = [
-            ["Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "PrtSc", "ScrLk", "Pause"],
-            ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Back"],
-            ["Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"],
-            ["Caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter"],
-            ["Shift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift"],
-            ["Ctrl", "Win", "Alt", " ", "Alt", "Win", "Menu", "Ctrl"],
-        ];
-        /* osk.exe 右侧导航区：编辑键 + 方向键 */
-        const NAVKEYS = [
-            ["Ins", "Home", "PgUp"],
-            ["Del", "End", "PgDn"],
-            ["", "Up", ""],
-            ["Left", "Down", "Right"],
-        ];
-        /* 数字小键盘已移除（用户要求），NUMPAD 定义不再需要 */
-
-        function keyToKeysym(key) {
-            // 转 noVNC keysym，复刻 osk.exe 全部按键
-            const map = {
-                "Back": 0xFF08, "Tab": 0xFF09, "Enter": 0xFF0D,
-                "Esc": 0xFF1B, "Caps": 0xFFE5, "Shift": 0xFFE1,
-                "Ctrl": 0xFFE3, "Alt": 0xFFE9, " ": 0x0020,
-                "\\": 0x005C, "'": 0x0027, ";": 0x003B, ",": 0x002C,
-                ".": 0x002E, "/": 0x002F, "-": 0x002D, "=": 0x003D,
-                "[": 0x005B, "]": 0x005D, "`": 0x0060, "~": 0x007E,
-                "NumLock": 0xFF7F, "KPDiv": 0xFFAF, "KPMul": 0xFFAA,
-                "KPSub": 0xFFAD, "KPAdd": 0xFFAB, "KPDec": 0xFFAE,
-                "KPEnter": 0xFF8D,
-                "Win": 0xFFEB, "Menu": 0xFF67, "PrtSc": 0xFF61,
-                "ScrLk": 0xFF14, "Pause": 0xFF13, "SysRq": 0xFF15,
-                "Up": 0xFF52, "Down": 0xFF54, "Left": 0xFF51, "Right": 0xFF53,
-                "Ins": 0xFF63, "Home": 0xFF50, "PgUp": 0xFF55,
-                "Del": 0xFFFF, "End": 0xFF57, "PgDn": 0xFF56,
-            };
-            if (map[key] !== undefined) return map[key];
-            // 小键盘数字：KP_0..KP_9 = 0xFFB0..0xFFB9
-            if (/^KP([0-9])$/.test(key)) {
-                return 0xFFB0 + parseInt(key.slice(2), 10);
-            }
-            // F1-F12
-            if (/^F(1[0-2]|[1-9])$/.test(key)) {
-                return 0xFFBE + (parseInt(key.slice(1), 10) - 1);
-            }
-            // 小键盘数字（独立 keysym，与主键盘区分）
-            if (/^[0-9]$/.test(key)) {
-                return key.charCodeAt(0);
-            }
-            const ch = key.charCodeAt(0);
-            return ch;
-        }
-
-        /* 实体控制键状态（Ctrl/Shift/Alt 长按进入组合键模式） */
-        const ctrlState = { ctrl: false, shift: false, alt: false, seq: [] };
-        let shiftCaps = false;     // Shift 切换大小写状态（软键盘显示与发送）
-        const ctrlBtnRef = {};     // 实体按下时高亮对应按钮
-
-        /* ===== 历史记录 & 快捷发送（localStorage 持久化） ===== */
-        const BUILTIN_QUICK = [
-            "Ctrl+Alt+Del", "Ctrl+Shift+Esc", "Win+R", "Win+L",
-            "Ctrl+C", "Ctrl+V", "Ctrl+Z", "Ctrl+Shift+S",
-        ];
-        const KEY_ALIAS = {
-            "Ctrl": 0xFFE3, "Control": 0xFFE3, "Shift": 0xFFE1,
-            "Alt": 0xFFE9, "Win": 0xFFEB, "Super": 0xFFEB,
-            "Esc": 0xFF1B, "Escape": 0xFF1B, "Enter": 0xFF0D,
-            "Tab": 0xFF09, "Space": 0x0020, "Del": 0xFFFF, "Delete": 0xFFFF,
-            "Back": 0xFF08, "Backspace": 0xFF08, "F1": 0xFFBE, "F2": 0xFFBF,
-            "F3": 0xFFC0, "F4": 0xFFC1, "F5": 0xFFC2, "F6": 0xFFC3,
-            "F7": 0xFFC4, "F8": 0xFFC5, "F9": 0xFFC6, "F10": 0xFFC7,
-            "F11": 0xFFC8, "F12": 0xFFC9,
-        };
-
-        function loadList(key, builtin) {
-            try {
-                const raw = localStorage.getItem(key);
-                if (raw) return JSON.parse(raw);
-            } catch (err) { /* 忽略 */ }
-            return builtin ? builtin.slice() : [];
-        }
-        function saveList(key, list) {
-            try { localStorage.setItem(key, JSON.stringify(list)); } catch (err) { /* 忽略 */ }
-        }
-        let history = loadList("osk_history", []);
-        let quick = loadList("osk_quick", BUILTIN_QUICK);
-
-        function recordHistory(label) {
-            history = [label].concat(history.filter((h) => h !== label));
-            if (history.length > 60) history = history.slice(0, 60);
-            saveList("osk_history", history);
-        }
-
-        /* 解析 "Ctrl+Alt+Del" 为 keysym 数组 */
-        function parseCombo(label) {
-            const parts = String(label).split("+").map((p) => p.trim()).filter(Boolean);
-            const ks = [];
-            for (const p of parts) {
-                if (KEY_ALIAS[p] !== undefined) {
-                    ks.push(KEY_ALIAS[p]);
-                } else if (/^F(1[0-2]|[1-9])$/.test(p)) {
-                    ks.push(0xFFBE + (parseInt(p.slice(1), 10) - 1));
-                } else if (p.length === 1) {
-                    ks.push(p.charCodeAt(0));
-                } else {
-                    ks.push(p.toUpperCase().charCodeAt(0));
-                }
-            }
-            return ks;
-        }
-
-        /* 发送组合（多个 keysym 同时按下后释放） */
-        function sendCombo(ksList) {
-            const ui = window.UI;
-            if (!ui || !ui.rfb) return;
-            try {
-                for (const ks of ksList) ui.rfb.sendKey(ks, true);
-                for (const ks of ksList) ui.rfb.sendKey(ks, false);
-            } catch (err) { /* 忽略 */ }
-        }
-
-        /* 点击确认弹窗：50% 透明度灰色蒙版 */
-        function confirmSend(label, onOk) {
-            const cv = document.createElement("div");
-            cv.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;" +
-                "background:rgba(40,42,46,0.5);z-index:9000;display:flex;" +
-                "align-items:center;justify-content:center";
-            const box = document.createElement("div");
-            box.style.cssText = "background:#33373d;border:1px solid #636a75;border-radius:10px;" +
-                "padding:18px 22px;color:#fff;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;" +
-                "text-align:center;min-width:260px";
-            const msg = document.createElement("div");
-            msg.textContent = "是否发送指令？";
-            msg.style.marginBottom = "6px";
-            const cmd = document.createElement("div");
-            cmd.textContent = label;
-            cmd.style.cssText = "color:#b6bac2;font-family:Consolas,monospace;margin-bottom:14px";
-            const btns = document.createElement("div");
-            btns.style.cssText = "display:flex;gap:8px;justify-content:center";
-            const ok = document.createElement("button");
-            ok.textContent = "发送";
-            const no = document.createElement("button");
-            no.textContent = "取消";
-            for (const b of [ok, no]) {
-                b.style.cssText = "border:none;border-radius:4px;padding:5px 16px;font-size:12px;" +
-                    "cursor:pointer;font-family:inherit;color:#fff";
-            }
-            ok.style.background = "#636a75";
-            no.style.background = "transparent";
-            no.style.border = "1px solid #636a75";
-            ok.addEventListener("click", () => { cv.remove(); onOk(); });
-            no.addEventListener("click", () => cv.remove());
-            btns.appendChild(ok);
-            btns.appendChild(no);
-            box.appendChild(msg);
-            box.appendChild(cmd);
-            box.appendChild(btns);
-            cv.appendChild(box);
-            document.body.appendChild(cv);
-        }
-
-        function anyCtrlDown() {
-            return ctrlState.ctrl || ctrlState.shift || ctrlState.alt;
-        }
-
-        function sendKeysym(ks, down) {
-            const ui = window.UI;
-            if (!ui || !ui.rfb || typeof ui.rfb.sendKey !== "function") return;
-            try { ui.rfb.sendKey(ks, down); } catch (err) { /* 忽略 */ }
-        }
-
-        /* 组合模式下累积的键发送：所有按住的实体控制键 + 键，最后 1 键不带控制键 */
-        function flushCombo() {
-            const seq = ctrlState.seq.slice();
-            ctrlState.seq = [];
-            if (!seq.length) return;
-            const ui = window.UI;
-            if (!ui || !ui.rfb) return;
-            /* 当前按住的控制键 keysym 列表 */
-            const mods = [];
-            if (ctrlState.ctrl) mods.push(0xFFE3);
-            if (ctrlState.shift) mods.push(0xFFE1);
-            if (ctrlState.alt) mods.push(0xFFE9);
-            const isCtrlOnly = ctrlState.ctrl && !ctrlState.shift && !ctrlState.alt;
-            try {
-                /* 控制键按下 */
-                for (const m of mods) ui.rfb.sendKey(m, true);
-                if (seq.length === 1) {
-                    /* 单个键：作为组合键发送（带控制键） */
-                    const ks = keyToKeysym(seq[0]);
-                    ui.rfb.sendKey(ks, true);
-                    ui.rfb.sendKey(ks, false);
-                    for (const m of mods) ui.rfb.sendKey(m, false);
-                } else {
-                    /* 前 n-1 个键：与控制键组合 */
-                    for (let i = 0; i < seq.length - 1; i++) {
-                        const ks = keyToKeysym(seq[i]);
-                        ui.rfb.sendKey(ks, true);
-                        ui.rfb.sendKey(ks, false);
-                    }
-                    /* 控制键释放（最后一个按钮不再组合控制键） */
-                    for (const m of mods) ui.rfb.sendKey(m, false);
-                    /* 最后一个键：不带控制键 */
-                    const lastKs = keyToKeysym(seq[seq.length - 1]);
-                    ui.rfb.sendKey(lastKs, true);
-                    ui.rfb.sendKey(lastKs, false);
-                }
-            } catch (err) { /* 忽略 */ }
-            /* 仅纯 Ctrl 组合记入历史（格式 Ctrl+X） */
-            if (isCtrlOnly) recordHistory("Ctrl+" + seq.join("+"));
-        }
-
-        function press(key) {
-            const ui = window.UI;
-            if (!ui || !ui.rfb || typeof ui.rfb.sendKey !== "function") return;
-            /* Shift 键：切换大小写（不直接发送） */
-            if (key === "Shift") {
-                shiftCaps = !shiftCaps;
-                syncCtrlBtn();
-                refreshShiftLabels();
-                return;
-            }
-            if (key === "Caps") {
-                shiftCaps = !shiftCaps;
-                syncCtrlBtn();
-                refreshShiftLabels();
-                return;
-            }
-            const ks = keyToKeysym(key);
-            if (anyCtrlDown()) {
-                /* 任一控制键按住：进入组合模式，累积按键 */
-                ctrlState.seq.push(key);
-                return;
-            }
-            try {
-                /* Shift 大小写状态：字母键发送时附带 Shift */
-                if (shiftCaps && /^[A-Za-z]$/.test(key)) {
-                    ui.rfb.sendKey(0xFFE1, true);
-                    ui.rfb.sendKey(ks, true);
-                    ui.rfb.sendKey(ks, false);
-                    ui.rfb.sendKey(0xFFE1, false);
-                    return;
-                }
-                ui.rfb.sendKey(ks, true);
-                ui.rfb.sendKey(ks, false);
-            } catch (err) { /* 忽略 */ }
-        }
-
-        function makeKey(k, label, flex, t) {
-            const b = document.createElement("button");
-            b.textContent = label;
-            const isMod = ["Ctrl", "Shift", "Alt"].includes(k);
-            b.style.cssText = "flex:" + flex +
-                ";padding:0 0;min-height:15px;background:" + t.panel +
-                ";border:1px solid " + t.input + ";border-radius:2px;color:" + t.fg +
-                ";font-size:9px;cursor:pointer;font-family:inherit;line-height:1;overflow:hidden;" +
-                "white-space:nowrap;text-overflow:ellipsis";
-            /* 点击/按下反馈 */
-            const onDown = () => {
-                b.style.background = t.navactive;
-                b.style.borderColor = t.navactiveborder;
-            };
-            const onUp = () => {
-                if (isMod) { syncCtrlBtn(); return; }
-                b.style.background = t.panel;
-                b.style.borderColor = t.input;
-            };
-            b.addEventListener("pointerdown", onDown);
-            b.addEventListener("pointerup", onUp);
-            b.addEventListener("pointerleave", onUp);
-            b.addEventListener("click", () => press(k));
-            if (isMod) {
-                ctrlBtnRef[k] = b;
-            }
-            return b;
-        }
-
-        /* 同步实体/软键盘控制键按钮高亮 */
-        function syncCtrlBtn() {
-            const t = theme.palette();
-            const states = { "Ctrl": ctrlState.ctrl, "Shift": ctrlState.shift, "Alt": ctrlState.alt };
-            for (const k in states) {
-                const b = ctrlBtnRef[k];
-                if (!b) continue;
-                const on = states[k] || (k === "Shift" && shiftCaps);
-                b.style.background = on ? t.navactive : t.panel;
-                b.style.borderColor = on ? t.navactiveborder : t.input;
-            }
-        }
-
-        /* 字母键按 shiftCaps 切换大小写显示 */
-        function refreshShiftLabels() {
-            if (!visible) return;
-            const upper = shiftCaps;
-            body.querySelectorAll(".osk_alpha").forEach((el) => {
-                const base = el.dataset.alpha;
-                el.textContent = upper ? base.toUpperCase() : base.toLowerCase();
-            });
-        }
-
-        function render() {
-            body.innerHTML = "";
-            const t = theme.palette();
-            const wrap = document.createElement("div");
-            wrap.style.cssText = "display:flex;flex-direction:column;gap:3px;height:210px";
-
-            const keys = document.createElement("div");
-            keys.style.cssText = "display:flex;gap:10px;align-items:stretch;flex:1;min-height:0;overflow:hidden";
-
-            /* ===== 字母区（左）：数字行 + 字母行 + 空格行 ===== */
-            const main = document.createElement("div");
-            main.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-width:0;height:100%";
-            for (const row of ROWS) {
-                if (row === ROWS[0]) continue; /* F 功能行移入功能区 */
-                const r = document.createElement("div");
-                r.style.cssText = "display:flex;gap:1px;flex:1";
-                for (const k of row) {
-                    const wide = ["Back", "Tab", "Caps", "Enter", "Shift", "Ctrl", "Alt", "Win", "Menu", " "].includes(k);
-                    const flex = k === " " ? "6" : wide ? "1.6" : "1";
-                    const b = makeKey(k, k, flex, t);
-                    /* 字母键标记：用于 Shift 切换大小写显示 */
-                    if (/^[A-Za-z]$/.test(k)) {
-                        b.classList.add("osk_alpha");
-                        b.dataset.alpha = k;
-                    }
-                    r.appendChild(b);
-                }
-                main.appendChild(r);
-            }
-
-            /* ===== 功能区（右）：F 功能键行 + 导航区（编辑键 + 方向键） ===== */
-            const func = document.createElement("div");
-            func.style.cssText = "display:flex;flex-direction:column;gap:4px;flex:0 1 auto;min-width:0;height:100%;" +
-                "border-left:1px solid " + t.border + ";padding-left:8px";
-
-            /* F 功能键行：Esc F1-F12 PrtSc ScrLk Pause */
-            const fRow = document.createElement("div");
-            fRow.style.cssText = "display:flex;gap:1px;flex:0 0 auto";
-            for (const k of ROWS[0]) {
-                const b = makeKey(k, k, "1", t);
-                b.style.flex = "1";
-                b.style.minWidth = "0";
-                b.style.padding = "0 2px";
-                fRow.appendChild(b);
-            }
-            func.appendChild(fRow);
-
-            /* 导航区：编辑键 + 方向键（3 列网格，空位占位保持对齐） */
-            const nav = document.createElement("div");
-            nav.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:2px;flex:1;min-height:0";
-            for (const row of NAVKEYS) {
-                for (const k of row) {
-                    if (!k) {
-                        const e = document.createElement("div");
-                        nav.appendChild(e);
-                        continue;
-                    }
-                    const b = makeKey(k, k, "1", t);
-                    b.style.width = "100%";
-                    b.style.height = "100%";
-                    b.style.boxSizing = "border-box";
-                    nav.appendChild(b);
-                }
-            }
-            func.appendChild(nav);
-
-            /* ===== 历史 + 快捷（最右） ===== */
-            const lists = document.createElement("div");
-            lists.style.cssText = "display:flex;gap:8px;align-items:stretch;flex:0 0 auto";
-            lists.appendChild(makeListCol("历史记录", history,
-                (label) => recordHistory(label), true, t));
-            lists.appendChild(makeListCol("快捷发送", quick,
-                (label) => recordHistory(label), false, t));
-
-            keys.appendChild(main);
-            keys.appendChild(func);
-            keys.appendChild(lists);
-            wrap.appendChild(keys);
-            body.appendChild(wrap);
-            syncCtrlBtn();
-            refreshShiftLabels();
-        }
-
-        /* 滚轮列表列：标题 + 可拖拽排序列表 + 底部按钮 */
-        function makeListCol(title, list, onSend, isHistory, t) {
-            const col = document.createElement("div");
-            col.style.cssText = "display:flex;flex-direction:column;flex:0 0 150px;height:200px;" +
-                "border-left:1px solid " + t.border + ";padding-left:8px;gap:3px;min-width:0;min-height:0";
-            const hd = document.createElement("div");
-            hd.textContent = title;
-            hd.style.cssText = "color:" + t.muted + ";font-size:11px;flex:0 0 auto";
-            col.appendChild(hd);
-
-            const listEl = document.createElement("div");
-            listEl.style.cssText = "flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:3px;min-height:0";
-            if (!list.length) {
-                const empty = document.createElement("div");
-                empty.textContent = isHistory ? "暂无历史" : "暂无快捷指令";
-                empty.style.cssText = "color:" + t.muted + ";font-size:11px;padding:4px";
-                listEl.appendChild(empty);
-            } else {
-                list.slice().forEach((label, idx) => {
-                    listEl.appendChild(makeListItem(label, list, listEl, onSend, idx, t, isHistory));
-                });
-            }
-            col.appendChild(listEl);
-
-            const bar = document.createElement("div");
-            bar.style.cssText = "display:flex;gap:4px;flex:0 0 auto";
-            if (isHistory) {
-                const clear = document.createElement("button");
-                clear.textContent = "清空历史";
-                clear.style.cssText = makeBtnStyle(t);
-                clear.addEventListener("click", () => {
-                    history = [];
-                    saveList("osk_history", history);
-                    render();
-                });
-                bar.appendChild(clear);
-            } else {
-                const add = document.createElement("button");
-                add.textContent = "修改指令";
-                add.style.cssText = makeBtnStyle(t);
-                add.addEventListener("click", () => editQuickDialog(t));
-                bar.appendChild(add);
-            }
-            col.appendChild(bar);
-            return col;
-        }
-
-        /* 修改快捷指令弹窗：列出已有指令（可删除），可新增（追加到末尾） */
-        function editQuickDialog(t) {
-            const cv = document.createElement("div");
-            cv.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;" +
-                "background:rgba(40,42,46,0.5);z-index:9100;display:flex;" +
-                "align-items:center;justify-content:center";
-            const box = document.createElement("div");
-            box.style.cssText = "background:#33373d;border:1px solid #636a75;border-radius:10px;" +
-                "padding:16px 20px;color:#fff;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;" +
-                "min-width:340px;max-width:420px;max-height:70vh;display:flex;flex-direction:column";
-            const hd = document.createElement("div");
-            hd.textContent = "修改快捷指令";
-            hd.style.cssText = "font-weight:600;margin-bottom:10px";
-            box.appendChild(hd);
-
-            const listWrap = document.createElement("div");
-            listWrap.style.cssText = "flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:0";
-            const renderList = () => {
-                listWrap.innerHTML = "";
-                if (!quick.length) {
-                    const e = document.createElement("div");
-                    e.textContent = "暂无快捷指令";
-                    e.style.cssText = "color:#b6bac2;font-size:12px";
-                    listWrap.appendChild(e);
-                } else {
-                    quick.forEach((label, i) => {
-                        const row = document.createElement("div");
-                        row.style.cssText = "display:flex;align-items:center;gap:6px";
-                        const span = document.createElement("span");
-                        span.textContent = label;
-                        span.style.cssText = "flex:1;color:#fff;font-family:Consolas,monospace;font-size:12px";
-                        span.title = "内置指令不可删除";
-                        const del = document.createElement("button");
-                        del.textContent = "删除";
-                        const builtin = BUILTIN_QUICK.includes(label);
-                        del.style.cssText = "border:none;border-radius:4px;padding:2px 10px;font-size:11px;" +
-                            "cursor:pointer;font-family:inherit;color:#fff;background:#7a4a4a";
-                        if (builtin) {
-                            del.textContent = "内置";
-                            del.disabled = true;
-                            del.style.background = "transparent";
-                            del.style.border = "1px solid #636a75";
-                            del.style.color = "#8a8f98";
-                            del.style.cursor = "default";
-                        } else {
-                            del.addEventListener("click", () => {
-                                quick = quick.filter((_, j) => j !== i);
-                                saveList("osk_quick", quick);
-                                renderList();
-                            });
-                        }
-                        row.appendChild(span);
-                        row.appendChild(del);
-                        listWrap.appendChild(row);
-                    });
-                }
-            };
-            renderList();
-            box.appendChild(listWrap);
-
-            const inputRow = document.createElement("div");
-            inputRow.style.cssText = "display:flex;gap:6px;margin-top:10px;flex:0 0 auto";
-            const inp = document.createElement("input");
-            inp.placeholder = "新增指令，如 Ctrl+Shift+N";
-            inp.style.cssText = "flex:1;background:#2b2e33;border:1px solid #4a4e56;color:#fff;" +
-                "border-radius:4px;padding:4px 8px;font-size:12px;font-family:inherit;outline:none";
-            const addBtn = document.createElement("button");
-            addBtn.textContent = "新增";
-            addBtn.style.cssText = "border:none;border-radius:4px;padding:4px 12px;font-size:12px;" +
-                "cursor:pointer;font-family:inherit;color:#fff;background:#636a75";
-            addBtn.addEventListener("click", () => {
-                const v = inp.value.trim();
-                if (v) {
-                    quick = quick.concat([v]);
-                    saveList("osk_quick", quick);
-                    inp.value = "";
-                    renderList();
-                }
-            });
-            inp.addEventListener("keydown", (ev) => {
-                if (ev.key === "Enter") addBtn.click();
-            });
-            inputRow.appendChild(inp);
-            inputRow.appendChild(addBtn);
-            box.appendChild(inputRow);
-
-            const closeRow = document.createElement("div");
-            closeRow.style.cssText = "display:flex;justify-content:flex-end;margin-top:10px;flex:0 0 auto";
-            const close = document.createElement("button");
-            close.textContent = "完成";
-            close.style.cssText = "border:none;border-radius:4px;padding:5px 18px;font-size:12px;" +
-                "cursor:pointer;font-family:inherit;color:#fff;background:#636a75";
-            close.addEventListener("click", () => { cv.remove(); render(); });
-            closeRow.appendChild(close);
-            box.appendChild(closeRow);
-
-            cv.appendChild(box);
-            document.body.appendChild(cv);
-        }
-
-        function makeBtnStyle(t) {
-            return "flex:1;padding:2px 6px;background:" + t.panel + ";border:1px solid " +
-                t.input + ";border-radius:4px;color:" + t.fg + ";font-size:11px;cursor:pointer;font-family:inherit";
-        }
-
-        /* 列表项：可点击（弹窗确认发送）+ 可拖拽排序 */
-        function makeListItem(label, list, listEl, onSend, idx, t, isHistory) {
-            const item = document.createElement("div");
-            item.textContent = label;
-            item.draggable = true;
-            item.style.cssText = "padding:3px 6px;background:" + t.panel + ";border:1px solid " +
-                t.input + ";border-radius:4px;color:" + t.fg + ";font-size:11px;cursor:pointer;" +
-                "font-family:Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
-            item.dataset.idx = idx;
-            item.addEventListener("click", () => {
-                confirmSend(label, () => {
-                    sendCombo(parseCombo(label));
-                    onSend(label);
-                    render();
-                });
-            });
-            item.addEventListener("dragstart", (ev) => {
-                ev.dataTransfer.setData("text/plain", String(idx));
-                item.style.opacity = "0.5";
-            });
-            item.addEventListener("dragend", () => { item.style.opacity = "1"; });
-            item.addEventListener("dragover", (ev) => {
-                ev.preventDefault();
-                item.style.borderColor = t.navactiveborder;
-            });
-            item.addEventListener("dragleave", () => { item.style.borderColor = t.input; });
-            item.addEventListener("drop", (ev) => {
-                ev.preventDefault();
-                item.style.borderColor = t.input;
-                const from = parseInt(ev.dataTransfer.getData("text/plain"), 10);
-                const to = parseInt(item.dataset.idx, 10);
-                if (Number.isFinite(from) && from !== to) {
-                    const arr = list.slice();
-                    const [moved] = arr.splice(from, 1);
-                    arr.splice(to, 0, moved);
-                    if (isHistory) {
-                        history = arr;
-                        saveList("osk_history", history);
-                    } else {
-                        quick = arr;
-                        saveList("osk_quick", quick);
-                    }
-                    render();
-                }
-            });
-            return item;
-        }
-
-        function show() {
-            if (!mask || !body) return;
-            visible = true;
-            render();
-            mask.style.display = "block";
-        }
-
-        function hide() {
-            if (!mask) return;
-            visible = false;
-            mask.style.display = "none";
-        }
-
-        function setHeld(key, down) {
-            ctrlState[key] = down;
-            syncCtrlBtn();
-            if (!down) flushCombo();
-        }
-
-        function init() {
-            if (!mask || !closeBtn) return;
-            $("st_kbd_btn").addEventListener("click", () => {
-                if (visible) hide();
-                else show();
-            });
-            closeBtn.addEventListener("click", hide);
-            document.addEventListener("wv-theme-change", () => { if (visible) render(); });
-
-            /* URL 参数 ?osk=1 自动打开软键盘（调试/演示用） */
-            if (new URLSearchParams(location.search).get("osk") === "1") {
-                show();
-            }
-
-            /* 实体键盘控制键监听：Ctrl/Shift/Alt 长按进入组合键模式 */
-            document.addEventListener("keydown", (ev) => {
-                if (ev.key === "Control") setHeld("ctrl", true);
-                else if (ev.key === "Shift") setHeld("shift", true);
-                else if (ev.key === "Alt") setHeld("alt", true);
-            });
-            document.addEventListener("keyup", (ev) => {
-                if (ev.key === "Control") setHeld("ctrl", false);
-                else if (ev.key === "Shift") setHeld("shift", false);
-                else if (ev.key === "Alt") setHeld("alt", false);
-            });
-            window.addEventListener("blur", () => {
-                setHeld("ctrl", false);
-                setHeld("shift", false);
-                setHeld("alt", false);
-                shiftCaps = false;
-                syncCtrlBtn();
-            });
-        }
-
-        return { init };
-    })();
 
     /* ====================================================================
      * 三象限：缩放调整（原始 / 适配 / 远程）
@@ -1761,6 +1116,111 @@
         return { init };
     })();
 
+    const loadPanel = (function () {
+        const barIds = {
+            cpu: $("load_cpu_bar"),
+            mem: $("load_mem_bar"),
+            swap: $("load_swap_bar"),
+            disk: $("load_disk_bar"),
+        };
+        const txtIds = {
+            cpu: $("load_cpu"),
+            mem: $("load_mem"),
+            swap: $("load_swap"),
+            disk: $("load_disk"),
+        };
+        const extraEl = $("load_extra");
+        let timer = null;
+
+        function fmtBytes(v) {
+            if (v == null) return "--";
+            const units = ["B", "KB", "MB", "GB", "TB"];
+            let i = 0;
+            while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+            return (v >= 100 ? Math.round(v) : v.toFixed(1)) + " " + units[i];
+        }
+
+        function setBar(key, pct, text) {
+            const bar = barIds[key];
+            const txt = txtIds[key];
+            if (bar) {
+                const inner = bar.firstElementChild;
+                if (inner) {
+                    const v = Math.max(0, Math.min(100, pct || 0));
+                    inner.style.width = v + "%";
+                    inner.style.background = v >= 90 ? "#a0453f" : v >= 70 ? "#a07a3f" : "#636a75";
+                }
+            }
+            if (txt) txt.textContent = text;
+        }
+
+        function render(s) {
+            if (!s) return;
+            /* CPU */
+            let cpuTxt = "--";
+            if (s.cpu_percent != null) {
+                cpuTxt = s.cpu_percent + "%";
+                if (s.cpu_cores) cpuTxt += " / " + s.cpu_cores + " 核";
+            }
+            setBar("cpu", s.cpu_percent, cpuTxt);
+            /* 内存 */
+            let memTxt = "--";
+            if (s.mem_percent != null) {
+                memTxt = s.mem_percent + "% (" + fmtBytes(s.mem_used) + " / " + fmtBytes(s.mem_total) + ")";
+            } else if (s.mem_total) {
+                memTxt = fmtBytes(s.mem_used) + " / " + fmtBytes(s.mem_total);
+            }
+            setBar("mem", s.mem_percent, memTxt);
+            /* 交换 */
+            let swapTxt = "--";
+            if (s.swap_total) {
+                swapTxt = (s.swap_percent != null ? s.swap_percent + "% " : "") +
+                    "(" + fmtBytes(s.swap_used) + " / " + fmtBytes(s.swap_total) + ")";
+            }
+            setBar("swap", s.swap_percent, swapTxt);
+            /* 磁盘 */
+            let diskTxt = "--";
+            if (s.disk_percent != null) {
+                diskTxt = s.disk_percent + "% (" + fmtBytes(s.disk_used) + " / " + fmtBytes(s.disk_total) + ")";
+            } else if (s.disk_total) {
+                diskTxt = fmtBytes(s.disk_used) + " / " + fmtBytes(s.disk_total);
+            }
+            setBar("disk", s.disk_percent, diskTxt);
+            /* 附加信息 */
+            if (extraEl) {
+                const t = theme.palette();
+                const lines = [];
+                if (s.hostname) lines.push("主机: " + s.hostname);
+                if (s.loadavg) lines.push("负载均值: " + s.loadavg);
+                if (s.uptime != null) {
+                    const u = Math.floor(s.uptime);
+                    const h = Math.floor(u / 3600), m = Math.floor((u % 3600) / 60);
+                    lines.push("运行时长: " + (h > 0 ? h + " 小时 " : "") + m + " 分钟");
+                }
+                if (s.platform) lines.push("平台: " + s.platform);
+                extraEl.innerHTML = lines.length ? lines.join("<br>") : "";
+                extraEl.style.color = t.muted;
+            }
+        }
+
+        async function load() {
+            try {
+                const resp = await fetch("/api/system");
+                if (!resp.ok) return;
+                const s = await resp.json();
+                render(s);
+            } catch (err) { /* 忽略 */ }
+        }
+
+        function init() {
+            if (!barIds.cpu) return;
+            load();
+            timer = setInterval(load, 1000);
+        }
+
+        return { init };
+    })();
+
     const connStatus = (function () {
         const dot = $("log_conn_dot");
         const text = $("log_conn_text");
@@ -2006,7 +1466,6 @@
     function boot() {
         setupQ3Nav();
         setupScreenTools();
-        onscreenKeyboard.init();
         setupZoom();
         setupConnPane();
         theme.init();
@@ -2015,6 +1474,7 @@
         term.init();
         srvlog.init();
         portPanel.init();
+        loadPanel.init();
         connStatus.init();
         setupClipboard();
         perf.init();

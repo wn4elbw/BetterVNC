@@ -240,22 +240,9 @@
                  data-th="color:fg">帧率: -- FPS&#10;画质: --&#10;延迟: -- ms</div>
             <div id="screen_tools">
                 <button id="st_zoom_btn" title="预览区在浏览器页面内缩放（铺满/恢复）">缩放</button>
-                <button id="st_kbd_btn" title="打开软键盘">软键盘</button>
             </div>
         </div>
 
-        <!-- 软键盘弹窗：贴底自适应高度，半透明灰色圆角 -->
-        <div id="osk_mask"
-             style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:5000;background:rgba(60,62,66,0.25);border-top-left-radius:16px;border-top-right-radius:16px;box-shadow:0 -4px 24px rgba(0,0,0,0.35)">
-            <div id="osk_header"
-                 style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;color:#e8e8ec;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;user-select:none">
-                <span>软键盘 / 小键盘</span>
-                <button id="osk_close_btn" title="关闭"
-                        style="background:transparent;border:none;color:#e8e8ec;font-size:16px;cursor:pointer;padding:0 6px;font-family:inherit;line-height:1">&#10005;</button>
-            </div>
-            <div id="osk_body"
-                 style="padding:0 14px 14px;overflow:hidden"></div>
-        </div>
 
         <!-- 水平分割条（固定） -->
         <div id="div_h"
@@ -318,6 +305,9 @@
                 <button class="q3_nav_btn" data-pane="conn"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
                         data-th="color:navfg">连接</button>
+                <button class="q3_nav_btn" data-pane="load"
+                        style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
+                        data-th="color:navfg">负载</button>
                 <button class="q3_nav_btn" data-pane="perf"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
                         data-th="color:navfg">性能</button>
@@ -372,6 +362,44 @@
                              data-th="border-color:border"><span style="flex:0 0 34px;color:#b6bac2" data-th="color:muted">状态</span><b style="flex:1;min-width:0;font-weight:600;word-break:break-all" id="conn_state" data-th="color:fg">检测中</b></div>
                         <div class="conn_hint" style="color:#b6bac2;font-size:11px;line-height:1.6;margin-top:6px;word-break:break-all"
                              data-th="color:muted">状态由服务端实时监控<br>操作按钮位于服务端日志标题栏<br>剪贴板在画面聚焦时自动同步</div>
+                    </div>
+                </div>
+
+                <div class="q3_pane" data-pane="load">
+                    <div id="load_panel" style="font-size:13px;font-family:inherit">
+                        <div class="conn_hd"
+                             style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #626a76;color:#ffffff"
+                             data-th="color:fg;border-color:border">系统负载</div>
+                        <div class="load_sec" style="margin-bottom:8px">
+                            <div class="load_lbl" style="display:flex;justify-content:space-between;color:#b6bac2;font-size:12px;margin-bottom:3px"
+                                 data-th="color:muted"><span>CPU</span><span id="load_cpu" data-th="color:fg">--</span></div>
+                            <div class="load_bar" id="load_cpu_bar"
+                                 style="height:8px;background:#33373d;border:1px solid #4a4e56;border-radius:3px;overflow:hidden"
+                                 data-th="background:panel;border-color:input"><i style="display:block;height:100%;width:0%;background:#636a75;transition:width .4s"></i></div>
+                        </div>
+                        <div class="load_sec" style="margin-bottom:8px">
+                            <div class="load_lbl" style="display:flex;justify-content:space-between;color:#b6bac2;font-size:12px;margin-bottom:3px"
+                                 data-th="color:muted"><span>内存</span><span id="load_mem" data-th="color:fg">--</span></div>
+                            <div class="load_bar" id="load_mem_bar"
+                                 style="height:8px;background:#33373d;border:1px solid #4a4e56;border-radius:3px;overflow:hidden"
+                                 data-th="background:panel;border-color:input"><i style="display:block;height:100%;width:0%;background:#636a75;transition:width .4s"></i></div>
+                        </div>
+                        <div class="load_sec" style="margin-bottom:8px">
+                            <div class="load_lbl" style="display:flex;justify-content:space-between;color:#b6bac2;font-size:12px;margin-bottom:3px"
+                                 data-th="color:muted"><span>交换</span><span id="load_swap" data-th="color:fg">--</span></div>
+                            <div class="load_bar" id="load_swap_bar"
+                                 style="height:8px;background:#33373d;border:1px solid #4a4e56;border-radius:3px;overflow:hidden"
+                                 data-th="background:panel;border-color:input"><i style="display:block;height:100%;width:0%;background:#636a75;transition:width .4s"></i></div>
+                        </div>
+                        <div class="load_sec" style="margin-bottom:8px">
+                            <div class="load_lbl" style="display:flex;justify-content:space-between;color:#b6bac2;font-size:12px;margin-bottom:3px"
+                                 data-th="color:muted"><span>磁盘</span><span id="load_disk" data-th="color:fg">--</span></div>
+                            <div class="load_bar" id="load_disk_bar"
+                                 style="height:8px;background:#33373d;border:1px solid #4a4e56;border-radius:3px;overflow:hidden"
+                                 data-th="background:panel;border-color:input"><i style="display:block;height:100%;width:0%;background:#636a75;transition:width .4s"></i></div>
+                        </div>
+                        <div id="load_extra" style="color:#b6bac2;font-size:11px;line-height:1.7"
+                             data-th="color:muted"></div>
                     </div>
                 </div>
 

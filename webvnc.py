@@ -243,6 +243,167 @@ def get_netstat():
     return result
 
 
+# ---------------------------------------------------------------------------
+# 系统占用统计（被预览机 CPU / 内存 / 磁盘 / 交换），供左下「负载」面板 1s 刷新
+# Linux 解析 /proc；Windows 用 ctypes（GetSystemTimes / GlobalMemoryStatusEx）
+# ---------------------------------------------------------------------------
+_cpu_prev = None  # (jiffies_total, jiffies_idle) 上次采样，用于计算 CPU 使用率
+
+
+def _cpu_linux():
+    """解析 /proc/stat 首个 cpu 行，返回 (total, idle) jiffies；失败返回 None"""
+    try:
+        with open("/proc/stat", "r", encoding="utf-8") as fh:
+            first = fh.readline()
+        if not first.startswith("cpu "):
+            return None
+        vals = [int(v) for v in first.split()[1:]]
+        total = sum(vals)
+        idle = vals[3] + (vals[4] if len(vals) > 4 else 0)
+        return total, idle
+    except Exception:
+        return None
+
+
+def get_system_stats():
+    """返回被预览机系统占用字典：cpu_percent/mem/mem_percent/swap/disk 等"""
+    global _cpu_prev
+    stats = {
+        "cpu_percent": None,
+        "cpu_cores": None,
+        "mem_total": None,
+        "mem_used": None,
+        "mem_percent": None,
+        "swap_total": None,
+        "swap_used": None,
+        "swap_percent": None,
+        "disk_total": None,
+        "disk_used": None,
+        "disk_percent": None,
+        "hostname": None,
+        "uptime": None,
+        "loadavg": None,
+        "platform": sys.platform,
+    }
+    try:
+        stats["hostname"] = socket.gethostname()
+    except Exception:
+        pass
+
+    if IS_WINDOWS:
+        try:
+            import ctypes
+            # 内存
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [("dwLength", ctypes.c_ulong),
+                            ("dwMemoryLoad", ctypes.c_ulong),
+                            ("ullTotalPhys", ctypes.c_ulonglong),
+                            ("ullAvailPhys", ctypes.c_ulonglong),
+                            ("ullTotalPageFile", ctypes.c_ulonglong),
+                            ("ullAvailPageFile", ctypes.c_ulonglong),
+                            ("ullTotalVirtual", ctypes.c_ulonglong),
+                            ("ullAvailVirtual", ctypes.c_ulonglong),
+                            ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+            m = MEMORYSTATUSEX()
+            m.dwLength = ctypes.sizeof(m)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):
+                stats["mem_total"] = m.ullTotalPhys
+                stats["mem_used"] = m.ullTotalPhys - m.ullAvailPhys
+                stats["mem_percent"] = round(m.dwMemoryLoad, 1)
+            # CPU（GetSystemTimes）
+            _get_system_times = ctypes.windll.kernel32.GetSystemTimes
+            idle = ctypes.c_ulonglong()
+            kernel = ctypes.c_ulonglong()
+            user = ctypes.c_ulonglong()
+            if _get_system_times(ctypes.byref(idle), ctypes.byref(kernel),
+                                 ctypes.byref(user)):
+                cur_total = kernel.value + user.value
+                cur_idle = idle.value
+                if _cpu_prev:
+                    d_total = cur_total - _cpu_prev[0]
+                    d_idle = cur_idle - _cpu_prev[1]
+                    if d_total > 0:
+                        stats["cpu_percent"] = round(
+                            max(0.0, min(100.0, (1 - d_idle / d_total) * 100)), 1)
+                _cpu_prev = (cur_total, cur_idle)
+        except Exception:
+            pass
+    else:
+        try:
+            cur = _cpu_linux()
+            if cur:
+                if _cpu_prev:
+                    d_total = cur[0] - _cpu_prev[0]
+                    d_idle = cur[1] - _cpu_prev[1]
+                    if d_total > 0:
+                        stats["cpu_percent"] = round(
+                            max(0.0, min(100.0, (1 - d_idle / d_total) * 100)), 1)
+                _cpu_prev = cur
+            stats["cpu_cores"] = os.cpu_count()
+            try:
+                with open("/proc/loadavg", "r", encoding="utf-8") as fh:
+                    la = fh.read().split()
+                if la:
+                    stats["loadavg"] = " ".join(la[:3])
+            except OSError:
+                pass
+            try:
+                with open("/proc/uptime", "r", encoding="utf-8") as fh:
+                    stats["uptime"] = float(fh.read().split()[0])
+            except OSError:
+                pass
+            meminfo = {}
+            with open("/proc/meminfo", "r", encoding="utf-8") as fh:
+                for line in fh:
+                    parts = line.split(":")
+                    if len(parts) == 2:
+                        val = parts[1].strip().split()[0]
+                        try:
+                            meminfo[parts[0]] = int(val) * 1024
+                        except (ValueError, IndexError):
+                            pass
+            total = meminfo.get("MemTotal")
+            avail = meminfo.get("MemAvailable", meminfo.get("MemFree"))
+            if total:
+                stats["mem_total"] = total
+                used = total - avail if avail else None
+                stats["mem_used"] = used
+                if used is not None:
+                    stats["mem_percent"] = round(used / total * 100, 1)
+            sw_total = meminfo.get("SwapTotal") or 0
+            sw_free = meminfo.get("SwapFree") or 0
+            stats["swap_total"] = sw_total
+            stats["swap_used"] = max(0, sw_total - sw_free)
+            if sw_total:
+                stats["swap_percent"] = round(stats["swap_used"] / sw_total * 100, 1)
+        except Exception:
+            pass
+
+    # 磁盘（数据盘，取第一个根分区）
+    try:
+        if IS_WINDOWS:
+            import ctypes
+            free = ctypes.c_ulonglong()
+            total_d = ctypes.c_ulonglong()
+            if ctypes.windll.kernel32.GetDiskFreeSpaceExW(
+                    ctypes.c_wchar_p("C:\\"), None, ctypes.byref(total_d),
+                    ctypes.byref(free)):
+                stats["disk_total"] = total_d.value
+                stats["disk_used"] = total_d.value - free.value
+        else:
+            st = os.statvfs("/")
+            total_d = st.f_frsize * st.f_blocks
+            free_d = st.f_frsize * st.f_bavail
+            stats["disk_total"] = total_d
+            stats["disk_used"] = total_d - free_d
+        if stats["disk_total"]:
+            stats["disk_percent"] = round(
+                stats["disk_used"] / stats["disk_total"] * 100, 1)
+    except Exception:
+        pass
+    return stats
+
+
 def log(msg):
     """输出到控制台，并保存到当前时间戳日志文件（行内仅时间不含日期）"""
     line = f"[{time.strftime('%H:%M:%S')}] [webvnc] {msg}"
@@ -1407,6 +1568,8 @@ class WebHandler(BaseHTTPRequestHandler):
             return self._send_json({"ports": get_netstat()})
         if path == "/api/ping":
             return self._send_json({"pong": True})
+        if path == "/api/system":
+            return self._send_json(get_system_stats())
         if path == "/api/clipboard":
             srv = WebHandler.vnc_server
             text = ""
