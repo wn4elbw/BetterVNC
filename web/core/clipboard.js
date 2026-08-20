@@ -39,6 +39,9 @@ export default class AsyncClipboard {
         if (!(await this._ensureAvailable())) return;
         try {
             const text = await navigator.clipboard.readText();
+            // 内容未变化时不重复发送，避免复制内容后又被写回造成的回灌
+            if (text === this._lastRead) return;
+            this._lastRead = text;
             this.onpaste(text);
         } catch (error) {
             Log.Error("Clipboard read failed: ", error);
@@ -50,8 +53,18 @@ export default class AsyncClipboard {
     writeClipboard(text) {
         // Can lazily check cached availability
         if (!this._isAvailable) return false;
-        navigator.clipboard.writeText(text)
-            .catch(error => Log.Error("Clipboard write failed: ", error));
+        // 与浏览器当前剪贴板相同则跳过写入，避免重复复制
+        navigator.clipboard.readText()
+            .then(current => {
+                if (current === text) return;
+                this._lastRead = text;
+                navigator.clipboard.writeText(text)
+                    .catch(error => Log.Error("Clipboard write failed: ", error));
+            })
+            .catch(() => {
+                navigator.clipboard.writeText(text)
+                    .catch(error => Log.Error("Clipboard write failed: ", error));
+            });
         return true;
     }
 

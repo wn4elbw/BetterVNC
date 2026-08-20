@@ -91,15 +91,7 @@
             ["", "Up", ""],
             ["Left", "Down", "Right"],
         ];
-        /* 数字小键盘：复刻真实数字键盘（5×4 网格，+ 与 Enter 竖排两行高，0 加宽两格）
-         * 每项：[键名, 行, 列, 行跨(默认1), 列跨(默认1)] */
-        const NUMPAD = [
-            ["NumLock", 1, 1], ["KPDiv", 1, 2], ["KPMul", 1, 3], ["KPSub", 1, 4],
-            ["KP7", 2, 1], ["KP8", 2, 2], ["KP9", 2, 3], ["KPAdd", 2, 4, 2],
-            ["KP4", 3, 1], ["KP5", 3, 2], ["KP6", 3, 3],
-            ["KP1", 4, 1], ["KP2", 4, 2], ["KP3", 4, 3], ["KPEnter", 4, 4, 2],
-            ["KP0", 5, 1, 1, 2], ["KPDec", 5, 3],
-        ];
+        /* 数字小键盘已移除（用户要求），NUMPAD 定义不再需要 */
 
         function keyToKeysym(key) {
             // 转 noVNC keysym，复刻 osk.exe 全部按键
@@ -390,14 +382,13 @@
             wrap.style.cssText = "display:flex;flex-direction:column;gap:3px;height:210px";
 
             const keys = document.createElement("div");
-            keys.style.cssText = "display:flex;gap:10px;align-items:flex-start;flex:1;min-height:0;overflow:hidden";
+            keys.style.cssText = "display:flex;gap:10px;align-items:stretch;flex:1;min-height:0;overflow:hidden";
 
-            /* ===== 左区块：字母区 + 导航区（大键盘，靠左靠上） ===== */
+            /* ===== 字母区（左）：数字行 + 字母行 + 空格行 ===== */
             const main = document.createElement("div");
-            main.style.cssText = "display:flex;flex-direction:row;gap:6px;flex:0 1 auto;min-width:220px;max-width:660px;min-height:0;height:100%";
-            const mainAlpha = document.createElement("div");
-            mainAlpha.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-width:0;height:100%";
+            main.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-width:0;height:100%";
             for (const row of ROWS) {
+                if (row === ROWS[0]) continue; /* F 功能行移入功能区 */
                 const r = document.createElement("div");
                 r.style.cssText = "display:flex;gap:1px;flex:1";
                 for (const k of row) {
@@ -411,57 +402,56 @@
                     }
                     r.appendChild(b);
                 }
-                mainAlpha.appendChild(r);
+                main.appendChild(r);
             }
-            /* 导航区：编辑键 + 方向键（小正方形，位于字母区右下） */
-            const nav = document.createElement("div");
-            nav.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:0 0 38px;border-left:1px solid " +
-                t.border + ";padding-left:4px;align-self:flex-end;height:85%";
-            for (const row of NAVKEYS) {
-                const r = document.createElement("div");
-                r.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);gap:1px;flex:1";
-                for (const k of row) {
-                    if (!k) { const e = document.createElement("div"); e.style.flex = "1"; r.appendChild(e); continue; }
-                    const b = makeKey(k, k, "1", t);
-                    b.style.aspectRatio = "1/1";
-                    b.style.width = "100%";
-                    r.appendChild(b);
-                }
-                nav.appendChild(r);
-            }
-            main.appendChild(mainAlpha);
-            main.appendChild(nav);
 
-            /* ===== 右区块：小键盘 + 历史 + 快捷（位于大键盘右下） ===== */
-            const right = document.createElement("div");
-            right.style.cssText = "display:flex;gap:8px;align-items:flex-end;flex:0 0 auto;margin-left:auto";
+            /* ===== 功能区（右）：F 功能键行 + 导航区（编辑键 + 方向键） ===== */
+            const func = document.createElement("div");
+            func.style.cssText = "display:flex;flex-direction:column;gap:4px;flex:0 1 auto;min-width:0;height:100%;" +
+                "border-left:1px solid " + t.border + ";padding-left:8px";
 
-            /* 数字小键盘（5×4 网格，复刻真实数字键盘） */
-            const npad = document.createElement("div");
-            npad.style.cssText = "display:grid;grid-template-columns:repeat(4,17px);grid-auto-rows:17px;gap:1px;" +
-                "border-left:1px solid " + t.border + ";padding-left:4px;align-self:flex-end";
-            for (const spec of NUMPAD) {
-                const k = spec[0], row = spec[1], col = spec[2];
-                const rSpan = spec[3] || 1, cSpan = spec[4] || 1;
-                const label = { "KP0": "0", "KP1": "1", "KP2": "2", "KP3": "3",
-                    "KP4": "4", "KP5": "5", "KP6": "6", "KP7": "7",
-                    "KP8": "8", "KP9": "9", "KPDiv": "/", "KPMul": "*",
-                    "KPSub": "-", "KPAdd": "+", "KPDec": ".", "KPEnter": "Enter" }[k] || k;
-                const b = makeKey(k, label, "1", t);
-                b.style.gridRow = row + " / " + (row + rSpan);
-                b.style.gridColumn = col + " / " + (col + cSpan);
+            /* F 功能键行：Esc F1-F12 PrtSc ScrLk Pause */
+            const fRow = document.createElement("div");
+            fRow.style.cssText = "display:flex;gap:1px;flex:0 0 auto";
+            for (const k of ROWS[0]) {
+                const b = makeKey(k, k, "1", t);
+                b.style.flex = "1";
                 b.style.minWidth = "0";
-                b.style.minHeight = "0";
-                npad.appendChild(b);
+                b.style.padding = "0 2px";
+                fRow.appendChild(b);
             }
-            right.appendChild(npad);
-            right.appendChild(makeListCol("历史记录", history,
+            func.appendChild(fRow);
+
+            /* 导航区：编辑键 + 方向键（3 列网格，空位占位保持对齐） */
+            const nav = document.createElement("div");
+            nav.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:2px;flex:1;min-height:0";
+            for (const row of NAVKEYS) {
+                for (const k of row) {
+                    if (!k) {
+                        const e = document.createElement("div");
+                        nav.appendChild(e);
+                        continue;
+                    }
+                    const b = makeKey(k, k, "1", t);
+                    b.style.width = "100%";
+                    b.style.height = "100%";
+                    b.style.boxSizing = "border-box";
+                    nav.appendChild(b);
+                }
+            }
+            func.appendChild(nav);
+
+            /* ===== 历史 + 快捷（最右） ===== */
+            const lists = document.createElement("div");
+            lists.style.cssText = "display:flex;gap:8px;align-items:stretch;flex:0 0 auto";
+            lists.appendChild(makeListCol("历史记录", history,
                 (label) => recordHistory(label), true, t));
-            right.appendChild(makeListCol("快捷发送", quick,
+            lists.appendChild(makeListCol("快捷发送", quick,
                 (label) => recordHistory(label), false, t));
 
             keys.appendChild(main);
-            keys.appendChild(right);
+            keys.appendChild(func);
+            keys.appendChild(lists);
             wrap.appendChild(keys);
             body.appendChild(wrap);
             syncCtrlBtn();
@@ -695,6 +685,11 @@
             });
             closeBtn.addEventListener("click", hide);
             document.addEventListener("wv-theme-change", () => { if (visible) render(); });
+
+            /* URL 参数 ?osk=1 自动打开软键盘（调试/演示用） */
+            if (new URLSearchParams(location.search).get("osk") === "1") {
+                show();
+            }
 
             /* 实体键盘控制键监听：Ctrl/Shift/Alt 长按进入组合键模式 */
             document.addEventListener("keydown", (ev) => {

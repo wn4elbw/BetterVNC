@@ -772,10 +772,15 @@ class VNCServer:
     def set_clipboard(self, text):
         """接收客户端 ClientCutText：更新内部剪贴板并写入系统剪贴板"""
         with self._clip_lock:
-            if text and text != self.clipboard:
+            changed = bool(text) and text != self.clipboard
+            if changed:
                 self.clipboard = text
                 self._clip_version += 1
-        _clipboard_set(text)
+        if changed:
+            _clipboard_set(text)
+        else:
+            # 内容相同：不重复写系统剪贴板，避免"再复制一份"回灌
+            log("剪贴板内容未变化，跳过系统剪贴板写入")
 
     def _run_client(self, client):
         try:
@@ -895,9 +900,9 @@ class VNCClient:
                 n = struct.unpack("!I", self._recv(4))[0]
                 raw = self._recv(n)
                 try:
-                    text = raw.decode("latin-1")
+                    text = raw.decode("utf-8")
                 except Exception:
-                    text = raw.decode("utf-8", "replace")
+                    text = raw.decode("latin-1", "replace")
                 if text:
                     log(f"收到剪贴板文本 {len(text)} 字符")
                     self.server.set_clipboard(text)

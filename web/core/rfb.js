@@ -516,24 +516,15 @@ export default class RFB extends EventTargetMixin {
             let length, i;
             let data;
 
-            length = 0;
-            // eslint-disable-next-line no-unused-vars
-            for (let codePoint of text) {
-                length++;
-            }
+            // 以 UTF-8 编码发送（兼容中文/emoji），服务端按 UTF-8 解码
+            const bytes = new TextEncoder().encode(text);
 
+            length = bytes.length;
             data = new Uint8Array(length);
 
             i = 0;
-            for (let codePoint of text) {
-                let code = codePoint.codePointAt(0);
-
-                /* Only ISO 8859-1 is supported */
-                if (code > 0xff) {
-                    code = 0x3f; // '?'
-                }
-
-                data[i++] = code;
+            for (let byte of bytes) {
+                data[i++] = byte;
             }
 
             RFB.messages.clientCutText(this._sock, data);
@@ -2356,7 +2347,9 @@ export default class RFB extends EventTargetMixin {
 
         if (length >= 0) {
             //Standard msg
-            const text = this._sock.rQshiftStr(length);
+            // 服务端按 UTF-8 编码发送，这里用 UTF-8 解码以支持中文/emoji
+            const bytes = this._sock.rQshiftBytes(length, false);
+            const text = new TextDecoder('utf-8').decode(bytes);
             if (this._viewOnly) {
                 return true;
             }
