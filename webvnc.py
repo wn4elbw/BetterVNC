@@ -195,6 +195,32 @@ def save_encoder(encoder):
         json.dump({"encoder": encoder}, fh)
 
 
+def _hex_to_ip(hex_ip, is_v6=False):
+    """把 /proc/net/tcp(6) 的十六进制地址转成可读 IP。
+    tcp 是 1 个 32 位小端字（8 hex），tcp6 是 4 组 32 位小端字（32 hex）。"""
+    try:
+        if is_v6:
+            # IPv4-mapped IPv6 (::ffff:a.b.c.d)：word2=0000FFFF，word3 为 IPv4 小端
+            if len(hex_ip) == 32 and hex_ip[16:24] == "0000ffff":
+                return _hex_to_ip(hex_ip[24:], False)
+            parts = []
+            for i in range(0, len(hex_ip), 8):
+                word = int(hex_ip[i:i + 8], 16)
+                parts.append(struct.pack(">I", word))  # 先恢复字节序
+            raw = b"".join(parts)
+            addr = socket.inet_ntop(socket.AF_INET6, raw)
+            # IPv4-mapped (::ffff:a.b.c.d) 显示为 IPv4
+            if addr.startswith("::ffff:"):
+                return addr.rsplit(":", 1)[-1]
+            return addr
+        else:
+            # /proc/net/tcp 的 8 hex 是小端序 32 位 IPv4
+            v = int(hex_ip, 16)
+            return f"{(v & 0xff)}.{((v >> 8) & 0xff)}.{((v >> 16) & 0xff)}.{((v >> 24) & 0xff)}"
+    except Exception:
+        return hex_ip
+
+
 def get_netstat():
     """扫描本机所有处于监听状态的开放端口"""
     ports = []
@@ -224,12 +250,13 @@ def get_netstat():
                         f = line.split()
                         if len(f) < 4 or f[3] != "0A":
                             continue
-                        ip, _, hexport = f[1].rpartition(":")
+                        hex_ip, _, hexport = f[1].rpartition(":")
                         try:
                             port = int(hexport, 16)
                         except ValueError:
                             continue
-                        ports.append({"proto": "tcp", "addr": f[1], "port": port})
+                        addr = _hex_to_ip(hex_ip, fname.endswith("tcp6"))
+                        ports.append({"proto": "tcp", "addr": addr, "port": port})
             except OSError:
                 pass
     seen = set()

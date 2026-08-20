@@ -1099,6 +1099,7 @@
                 ports = data.ports || [];
             } catch (err) { /* 忽略 */ }
             render();
+            return ports.length;
         }
 
         function init() {
@@ -1109,7 +1110,10 @@
                 if (btn) load();
             });
             document.addEventListener("wv-theme-change", render);
-            load();
+            /* 首次加载 + 失败时 2s 后重试一次 */
+            load().then((n) => {
+                if (!n) setTimeout(load, 2000);
+            });
             timer = setInterval(load, 60000);
         }
 
