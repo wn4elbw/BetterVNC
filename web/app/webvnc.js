@@ -390,9 +390,9 @@
             const keys = document.createElement("div");
             keys.style.cssText = "display:flex;gap:8px;align-items:stretch;flex:1;min-height:0;overflow:hidden";
 
-            /* 主键盘（左侧，flex 撑满） */
+            /* 主键盘（左侧：字母区 + 导航区，紧凑摆放） */
             const main = document.createElement("div");
-            main.style.cssText = "display:flex;flex-direction:row;gap:8px;flex:1 1 auto;min-width:220px;min-height:0";
+            main.style.cssText = "display:flex;flex-direction:row;gap:6px;flex:1 1 auto;min-width:220px;max-width:720px;min-height:0";
             const mainAlpha = document.createElement("div");
             mainAlpha.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-width:0";
             for (const row of ROWS) {
