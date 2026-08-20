@@ -248,6 +248,7 @@ def get_netstat():
 # Linux 解析 /proc；Windows 用 ctypes（GetSystemTimes / GlobalMemoryStatusEx）
 # ---------------------------------------------------------------------------
 _cpu_prev = None  # (jiffies_total, jiffies_idle) 上次采样，用于计算 CPU 使用率
+_main_args = None  # main() 解析的启动参数，供 /api/power 重启服务
 
 
 def _cpu_linux():
@@ -402,6 +403,67 @@ def get_system_stats():
     except Exception:
         pass
     return stats
+
+
+def restart_service():
+    """重启 webvnc 服务进程（携带原启动参数，绝对路径，Windows 兼容）"""
+    args = ["python" if IS_WINDOWS else "python3", os.path.abspath(__file__)]
+    a = _main_args
+    if a:
+        if a.host != "0.0.0.0":
+            args += ["--host", str(a.host)]
+        if a.port != 6080:
+            args += ["--port", str(a.port)]
+        if a.vnc_host != "0.0.0.0":
+            args += ["--vnc-host", str(a.vnc_host)]
+        if a.vnc_port != 5900:
+            args += ["--vnc-port", str(a.vnc_port)]
+        if a.token:
+            args += ["--token", a.token]
+        if a.no_https:
+            args += ["--no-https"]
+        if a.xdisplay:
+            args += ["--xdisplay", a.xdisplay]
+    try:
+        log("服务重启中 ...")
+        subprocess.Popen(args, cwd=BASE, creationflags=NO_WINDOW)
+        # 给新进程短暂启动时间后退出当前进程
+        threading.Thread(target=_die_later, daemon=True).start()
+        return True
+    except Exception as exc:
+        log(f"重启失败: {exc!r}")
+        return False
+
+
+def _die_later():
+    time.sleep(1.5)
+    os._exit(0)
+
+
+def power_action(action):
+    """电源控制：shutdown / reboot / restart_service"""
+    if action == "restart_service":
+        return restart_service()
+    if action not in ("shutdown", "reboot"):
+        return False
+    try:
+        if IS_WINDOWS:
+            flag = 0x00000002 if action == "reboot" else 0x00000001
+            import ctypes
+            # SE_SHUTDOWN_NAME 提权后关机/重启
+            ctypes.windll.ntdll.RtlAdjustPrivilege(
+                19, 1, 0, ctypes.byref(ctypes.c_ulong()))
+            ctypes.windll.user32.ExitWindowsEx(
+                flag | 0x00000004, 0)  # EWX_REBOOT|EWX_POWEROFF|EWX_FORCE
+            return True
+        else:
+            cmd = ["shutdown", "-r", "now"] if action == "reboot" else \
+                ["shutdown", "-h", "now"]
+            subprocess.Popen(cmd, cwd=BASE)
+            return True
+    except Exception as exc:
+        log(f"电源操作失败: {exc!r}")
+        return False
 
 
 def log(msg):
@@ -1663,6 +1725,19 @@ class WebHandler(BaseHTTPRequestHandler):
             if srv:
                 srv.disconnect_all()
             return self._send_json({"ok": True})
+        if path == "/api/power":
+            try:
+                body = self._read_body() or b"{}"
+                data = json.loads(body)
+                action = data.get("action", "")
+                if action not in ("shutdown", "reboot", "restart_service"):
+                    return self._send_json({"error": "invalid action"}, 400)
+                if action in ("shutdown", "reboot"):
+                    log(f"远程电源操作: {action}")
+                ok = power_action(action)
+                return self._send_json({"ok": ok, "action": action})
+            except (ValueError, OSError) as exc:
+                return self._send_json({"error": str(exc)}, 500)
         return self._send_json({"error": "not found"}, 404)
 
     # ---- 动态注入 vnc.html ----
@@ -2109,6 +2184,8 @@ def main():
     ap.add_argument("--xdisplay", default="",
                     help="Linux 虚拟桌面 X display（如 :99），抓取真实 X 桌面并模拟输入")
     args = ap.parse_args()
+    global _main_args
+    _main_args = args
 
     # 一律使用相对路径：先切换到脚本所在目录
     os.chdir(BASE)
