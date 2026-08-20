@@ -91,12 +91,14 @@
             ["", "Up", ""],
             ["Left", "Down", "Right"],
         ];
+        /* 数字小键盘：复刻真实数字键盘（5×4 网格，+ 与 Enter 竖排两行高，0 加宽两格）
+         * 每项：[键名, 行, 列, 行跨(默认1), 列跨(默认1)] */
         const NUMPAD = [
-            ["NumLock", "KPDiv", "KPMul", "KPSub"],
-            ["KP7", "KP8", "KP9", "KPAdd"],
-            ["KP4", "KP5", "KP6", "KPAdd"],
-            ["KP1", "KP2", "KP3", "KPEnter"],
-            ["KP0", "KP0", "KPDec", "KPEnter"],
+            ["NumLock", 1, 1], ["KPDiv", 1, 2], ["KPMul", 1, 3], ["KPSub", 1, 4],
+            ["KP7", 2, 1], ["KP8", 2, 2], ["KP9", 2, 3], ["KPAdd", 2, 4, 2],
+            ["KP4", 3, 1], ["KP5", 3, 2], ["KP6", 3, 3],
+            ["KP1", 4, 1], ["KP2", 4, 2], ["KP3", 4, 3], ["KPEnter", 4, 4, 2],
+            ["KP0", 5, 1, 1, 2], ["KPDec", 5, 3],
         ];
 
         function keyToKeysym(key) {
@@ -434,25 +436,23 @@
             const right = document.createElement("div");
             right.style.cssText = "display:flex;gap:8px;align-items:flex-end;flex:0 0 auto;margin-left:auto";
 
-            /* 数字小键盘（小正方形，靠下） */
+            /* 数字小键盘（5×4 网格，复刻真实数字键盘） */
             const npad = document.createElement("div");
-            npad.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:0 0 66px;border-left:1px solid " +
-                t.border + ";padding-left:4px;align-self:flex-end";
-            for (const row of NUMPAD) {
-                const cols = row.length;
-                const r = document.createElement("div");
-                r.style.cssText = "display:grid;grid-template-columns:repeat(" + cols + ",1fr);gap:1px;flex:1";
-                for (const k of row) {
-                    const label = { "KP0": "0", "KP1": "1", "KP2": "2", "KP3": "3",
-                        "KP4": "4", "KP5": "5", "KP6": "6", "KP7": "7",
-                        "KP8": "8", "KP9": "9", "KPDiv": "/", "KPMul": "*",
-                        "KPSub": "-", "KPAdd": "+", "KPDec": ".", "KPEnter": "Enter" }[k] || k;
-                    const b = makeKey(k, label, "1", t);
-                    b.style.aspectRatio = "1/1";
-                    b.style.width = "100%";
-                    r.appendChild(b);
-                }
-                npad.appendChild(r);
+            npad.style.cssText = "display:grid;grid-template-columns:repeat(4,17px);grid-auto-rows:17px;gap:1px;" +
+                "border-left:1px solid " + t.border + ";padding-left:4px;align-self:flex-end";
+            for (const spec of NUMPAD) {
+                const k = spec[0], row = spec[1], col = spec[2];
+                const rSpan = spec[3] || 1, cSpan = spec[4] || 1;
+                const label = { "KP0": "0", "KP1": "1", "KP2": "2", "KP3": "3",
+                    "KP4": "4", "KP5": "5", "KP6": "6", "KP7": "7",
+                    "KP8": "8", "KP9": "9", "KPDiv": "/", "KPMul": "*",
+                    "KPSub": "-", "KPAdd": "+", "KPDec": ".", "KPEnter": "Enter" }[k] || k;
+                const b = makeKey(k, label, "1", t);
+                b.style.gridRow = row + " / " + (row + rSpan);
+                b.style.gridColumn = col + " / " + (col + cSpan);
+                b.style.minWidth = "0";
+                b.style.minHeight = "0";
+                npad.appendChild(b);
             }
             right.appendChild(npad);
             right.appendChild(makeListCol("历史记录", history,
