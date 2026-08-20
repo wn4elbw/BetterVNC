@@ -111,10 +111,12 @@ IS_WINDOWS = (os.name == "nt")
 BASE = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = "log"  # 相对路径，main() 中先切换到脚本目录
 THEME_FILE = "theme.json"  # 界面主题配置文件（深色/浅色）
+DISPLAY_FILE = "display.json"  # 显示设置自定义选项
 _log_lock = threading.Lock()
 _log_file = None       # 当前日志文件（时间戳命名）
 _log_last_clean = 0.0  # 上次清理旧日志时间（每天清理前一天）
 _clip_display = None   # Linux 剪贴板使用的 X display（--xdisplay）
+_display_default = None  # 服务启动时记录的系统默认显示设置
 
 
 def _new_log_file():
@@ -169,6 +171,67 @@ def save_theme(theme):
         theme = "dark"
     with open(THEME_FILE, "w", encoding="utf-8") as fh:
         json.dump({"theme": theme}, fh)
+
+
+def _load_display_custom():
+    try:
+        with open(DISPLAY_FILE, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        resolutions = []
+        for item in data.get("resolutions", []):
+            width, height = int(item["width"]), int(item["height"])
+            if 640 <= width <= 16384 and 480 <= height <= 16384:
+                resolutions.append({"width": width, "height": height})
+        scales = []
+        for value in data.get("scales", []):
+            value = int(value)
+            if 50 <= value <= 500:
+                scales.append(value)
+        return {"resolutions": resolutions, "scales": scales}
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return {"resolutions": [], "scales": []}
+
+
+def _save_display_custom(data):
+    with open(DISPLAY_FILE, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+
+
+def _display_custom_action(data):
+    custom = _load_display_custom()
+    action = data.get("action")
+    try:
+        if action == "reset":
+            custom = {"resolutions": [], "scales": []}
+        elif action == "add_resolution":
+            width, height = int(data.get("width")), int(data.get("height"))
+            if not (640 <= width <= 16384 and 480 <= height <= 16384):
+                return {"ok": False, "error": "分辨率范围无效"}
+            item = {"width": width, "height": height}
+            if item not in custom["resolutions"]:
+                custom["resolutions"].append(item)
+        elif action == "delete_resolution":
+            custom["resolutions"] = [
+                item for item in custom["resolutions"]
+                if f'{item["width"]}x{item["height"]}' != str(data.get("value"))
+            ]
+        elif action == "add_scale":
+            value = int(data.get("value"))
+            if not 50 <= value <= 500:
+                return {"ok": False, "error": "缩放范围应为 50% 至 500%"}
+            if value not in custom["scales"]:
+                custom["scales"].append(value)
+        elif action == "delete_scale":
+            value = int(data.get("value"))
+            custom["scales"] = [item for item in custom["scales"] if item != value]
+        else:
+            return {"ok": False, "error": "无效操作"}
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "参数无效"}
+    custom["scales"].sort()
+    custom["resolutions"].sort(key=lambda item: (item["width"] * item["height"], item["width"]))
+    _save_display_custom(custom)
+    return {"ok": True, "custom": custom}
 
 
 ENCODER_FILE = "encoder.json"  # 传输编码配置
@@ -501,25 +564,50 @@ def _display_info():
                     scale = round(int(dpi) / 96 * 100)
             except Exception:
                 pass
+            custom = _load_display_custom()
+            standard = [
+                {"width": 1024, "height": 768}, {"width": 1280, "height": 720},
+                {"width": 1280, "height": 800}, {"width": 1366, "height": 768},
+                {"width": 1440, "height": 900}, {"width": 1600, "height": 900},
+                {"width": 1920, "height": 1080}, {"width": 2560, "height": 1440},
+                {"width": 3840, "height": 2160},
+            ]
+            modes = modes + [item for item in standard if item not in modes]
+            global _display_default
+            if _display_default is None:
+                _display_default = {
+                    "width": int(current.dmPelsWidth),
+                    "height": int(current.dmPelsHeight),
+                    "scale": scale,
+                }
             return {
                 "supported": True,
                 "platform": "windows",
                 "current": {"width": int(current.dmPelsWidth), "height": int(current.dmPelsHeight)},
-                "modes": modes,
+                "modes": modes + [item for item in custom["resolutions"] if item not in modes],
                 "scale": scale,
-                "scales": [100, 125, 150, 175, 200],
+                "scales": sorted(set([100, 125, 150, 175, 200, 225, 250, 300] + custom["scales"])),
+                "custom": custom,
             }
         except Exception as exc:
             return {"supported": False, "error": str(exc), "platform": "windows"}
 
     width, height = 1024, 768
+    custom = _load_display_custom()
     return {
         "supported": False,
         "platform": sys.platform,
         "current": {"width": width, "height": height},
-        "modes": [{"width": width, "height": height}],
+        "modes": [{"width": width, "height": height}] + [
+            item for item in [
+                {"width": 1280, "height": 720}, {"width": 1280, "height": 800},
+                {"width": 1366, "height": 768}, {"width": 1440, "height": 900},
+                {"width": 1920, "height": 1080}, {"width": 2560, "height": 1440},
+            ] if item != {"width": width, "height": height}
+        ],
         "scale": 100,
-        "scales": [100],
+        "scales": sorted(set([100, 125, 150, 175, 200, 225, 250, 300] + custom["scales"])),
+        "custom": custom,
         "error": "当前平台未提供物理显示配置接口",
     }
 
@@ -579,6 +667,21 @@ def _apply_display_info(data):
         return {"ok": True, "scale": scale, "requires_logoff": True}
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
+
+
+def _reset_display_info():
+    """恢复服务启动时记录的系统默认分辨率和缩放设置。"""
+    if not IS_WINDOWS:
+        return {"ok": True, "reset": True}
+    default = _display_default
+    if not default:
+        _display_info()
+        default = _display_default
+    if not default:
+        return {"ok": False, "error": "无法读取系统默认显示设置"}
+    result = _apply_display_info(default)
+    result["reset"] = True
+    return result
 
 
 def restart_service():
@@ -1872,7 +1975,13 @@ class WebHandler(BaseHTTPRequestHandler):
         if path == "/api/display":
             try:
                 body = self._read_body() or b"{}"
-                return self._send_json(_apply_display_info(json.loads(body)))
+                data = json.loads(body)
+                if data.get("action"):
+                    result = _display_custom_action(data)
+                    if result.get("ok") and data.get("action") == "reset":
+                        result.update(_reset_display_info())
+                    return self._send_json(result)
+                return self._send_json(_apply_display_info(data))
             except (ValueError, OSError) as exc:
                 return self._send_json({"ok": False, "error": str(exc)}, 400)
         if path == "/api/encoder":

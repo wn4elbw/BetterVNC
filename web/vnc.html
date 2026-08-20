@@ -333,26 +333,26 @@
 
                 <div class="q3_pane active" data-pane="zoom">
                     <div id="zoom_panel" style="font-size:13px;font-family:inherit">
-                        <div class="zoom_hd"
-                             style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #626a76;color:#ffffff"
-                             data-th="color:fg;border-color:border">缩放调整</div>
-                         <div class="zoom_row" style="margin-bottom:8px">目标显示设置</div>
+                         <div class="zoom_hd"
+                              style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #626a76;color:#ffffff"
+                              data-th="color:fg;border-color:border">缩放调整</div>
+                         <div class="zoom_row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span>目标显示设置</span><button id="display_reset_btn" type="button"
+                              style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit"
+                              data-th="background:panel;color:fg;border-color:input">重置</button></div>
                          <div style="display:flex;gap:6px;margin-bottom:8px">
                              <label style="flex:1;min-width:0;color:#b6bac2;font-size:12px"
                                     data-th="color:muted">物理分辨率
-                                 <select id="display_resolution_select"
-                                         style="display:block;width:100%;box-sizing:border-box;margin-top:3px;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;font-family:inherit"
-                                         data-th="background:panel;color:fg;border-color:input">
-                                     <option value="">读取中...</option>
-                                 </select>
+                                 <div style="display:flex;gap:3px;margin-top:3px"><select id="display_resolution_select"
+                                         style="display:block;flex:1;min-width:0;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;font-family:inherit"
+                                         data-th="background:panel;color:fg;border-color:input"><option value="">读取中...</option></select><button id="display_resolution_delete" type="button" title="删除自定义分辨率"
+                                         style="display:none;flex:0 0 22px;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;cursor:pointer">×</button></div>
                              </label>
                              <label style="flex:1;min-width:0;color:#b6bac2;font-size:12px"
                                     data-th="color:muted">系统缩放
-                                 <select id="display_scale_select"
-                                         style="display:block;width:100%;box-sizing:border-box;margin-top:3px;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;font-family:inherit"
-                                         data-th="background:panel;color:fg;border-color:input">
-                                     <option value="">读取中...</option>
-                                 </select>
+                                 <div style="display:flex;gap:3px;margin-top:3px"><select id="display_scale_select"
+                                         style="display:block;flex:1;min-width:0;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;font-family:inherit"
+                                         data-th="background:panel;color:fg;border-color:input"><option value="">读取中...</option></select><button id="display_scale_delete" type="button" title="删除自定义缩放"
+                                         style="display:none;flex:0 0 22px;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;cursor:pointer">×</button></div>
                              </label>
                          </div>
                          <div class="zoom_btns"
