@@ -170,7 +170,6 @@ def save_theme(theme):
 def _load_config():
     config = {"theme": "dark", "encoder": "zlib",
               "display": {"resolutions": [], "scales": []}}
-    config_exists = os.path.isfile(CONFIG_FILE)
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
             loaded = json.load(fh)
@@ -181,25 +180,7 @@ def _load_config():
 
     if not isinstance(config.get("display"), dict):
         config["display"] = {"resolutions": [], "scales": []}
-    if not config_exists:
-        # 仅在首次创建统一配置时迁移历史文件，避免覆盖 config.json 的有效值。
-        for filename, key in (("theme.json", "theme"), ("encoder.json", "encoder")):
-            try:
-                with open(filename, "r", encoding="utf-8") as fh:
-                    value = json.load(fh).get(key)
-                if value:
-                    config[key] = value
-            except (OSError, ValueError, TypeError, json.JSONDecodeError):
-                pass
-        try:
-            with open("display.json", "r", encoding="utf-8") as fh:
-                legacy_display = json.load(fh)
-            config["display"] = {
-                "resolutions": legacy_display.get("resolutions", []),
-                "scales": legacy_display.get("scales", []),
-            }
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
-            pass
+    if not os.path.isfile(CONFIG_FILE):
         _save_config(config)
     return config
 
