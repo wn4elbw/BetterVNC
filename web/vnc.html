@@ -244,9 +244,9 @@
             </div>
         </div>
 
-        <!-- 软键盘弹窗：网页下方 50% 区域，半透明灰色圆角 -->
+        <!-- 软键盘弹窗：贴底自适应高度，半透明灰色圆角 -->
         <div id="osk_mask"
-             style="display:none;position:fixed;left:0;right:0;bottom:0;top:50%;z-index:5000;background:rgba(60,62,66,0.25);border-top-left-radius:16px;border-top-right-radius:16px;box-shadow:0 -4px 24px rgba(0,0,0,0.35)">
+             style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:5000;background:rgba(60,62,66,0.25);border-top-left-radius:16px;border-top-right-radius:16px;box-shadow:0 -4px 24px rgba(0,0,0,0.35)">
             <div id="osk_header"
                  style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;color:#e8e8ec;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;user-select:none">
                 <span>软键盘 / 小键盘</span>
@@ -254,7 +254,7 @@
                         style="background:transparent;border:none;color:#e8e8ec;font-size:16px;cursor:pointer;padding:0 6px;font-family:inherit;line-height:1">&#10005;</button>
             </div>
             <div id="osk_body"
-                 style="position:absolute;left:14px;right:14px;top:34px;bottom:14px;overflow:hidden"></div>
+                 style="padding:0 14px 14px;overflow:hidden"></div>
         </div>
 
         <!-- 水平分割条（固定） -->

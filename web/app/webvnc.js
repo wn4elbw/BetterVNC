@@ -334,9 +334,9 @@
             b.textContent = label;
             const isMod = ["Ctrl", "Shift", "Alt"].includes(k);
             b.style.cssText = "flex:" + flex +
-                ";padding:1px 1px;min-height:18px;background:" + t.panel +
-                ";border:1px solid " + t.input + ";border-radius:3px;color:" + t.fg +
-                ";font-size:10px;cursor:pointer;font-family:inherit;line-height:1.1;overflow:hidden;" +
+                ";padding:0 0;min-height:15px;background:" + t.panel +
+                ";border:1px solid " + t.input + ";border-radius:2px;color:" + t.fg +
+                ";font-size:9px;cursor:pointer;font-family:inherit;line-height:1;overflow:hidden;" +
                 "white-space:nowrap;text-overflow:ellipsis";
             /* 点击/按下反馈 */
             const onDown = () => {
@@ -385,7 +385,7 @@
             body.innerHTML = "";
             const t = theme.palette();
             const wrap = document.createElement("div");
-            wrap.style.cssText = "display:flex;flex-direction:column;gap:3px;height:100%";
+            wrap.style.cssText = "display:flex;flex-direction:column;gap:3px;height:200px";
 
             const keys = document.createElement("div");
             keys.style.cssText = "display:flex;gap:8px;align-items:stretch;flex:1;min-height:0;overflow:hidden";
@@ -394,10 +394,10 @@
             const main = document.createElement("div");
             main.style.cssText = "display:flex;flex-direction:row;gap:8px;flex:1 1 auto;min-width:220px;min-height:0";
             const mainAlpha = document.createElement("div");
-            mainAlpha.style.cssText = "display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:0";
+            mainAlpha.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-width:0";
             for (const row of ROWS) {
                 const r = document.createElement("div");
-                r.style.cssText = "display:flex;gap:2px;flex:1";
+                r.style.cssText = "display:flex;gap:1px;flex:1";
                 for (const k of row) {
                     const wide = ["Back", "Tab", "Caps", "Enter", "Shift", "Ctrl", "Alt", "Win", "Menu", " "].includes(k);
                     const flex = k === " " ? "6" : wide ? "1.6" : "1";
@@ -413,11 +413,11 @@
             }
             /* 导航区：编辑键 + 方向键 */
             const nav = document.createElement("div");
-            nav.style.cssText = "display:flex;flex-direction:column;gap:2px;flex:0 0 96px;border-left:1px solid " +
+            nav.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:0 0 88px;border-left:1px solid " +
                 t.border + ";padding-left:8px";
             for (const row of NAVKEYS) {
                 const r = document.createElement("div");
-                r.style.cssText = "display:flex;gap:2px;flex:1";
+                r.style.cssText = "display:flex;gap:1px;flex:1";
                 for (const k of row) {
                     if (!k) { r.appendChild(document.createElement("div")).style.flex = "1"; continue; }
                     r.appendChild(makeKey(k, k, "1", t));
@@ -429,11 +429,11 @@
 
             /* 小键盘（右侧，固定宽度） */
             const npad = document.createElement("div");
-            npad.style.cssText = "display:flex;flex-direction:column;gap:2px;flex:0 0 170px;border-left:1px solid " +
+            npad.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:0 0 165px;border-left:1px solid " +
                 t.border + ";padding-left:8px";
             for (const row of NUMPAD) {
                 const r = document.createElement("div");
-                r.style.cssText = "display:flex;gap:2px;flex:1";
+                r.style.cssText = "display:flex;gap:1px;flex:1";
                 for (const k of row) {
                     const label = { "KP0": "0", "KP1": "1", "KP2": "2", "KP3": "3",
                         "KP4": "4", "KP5": "5", "KP6": "6", "KP7": "7",
