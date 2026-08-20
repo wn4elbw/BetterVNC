@@ -154,7 +154,8 @@ def _clean_old_logs():
 
 def load_theme():
     """读取界面主题配置，默认深色"""
-    return _load_config().get("theme", "dark")
+    value = _load_config().get("theme")
+    return value if value in ("dark", "light") else "dark"
 
 
 def save_theme(theme):
@@ -169,6 +170,7 @@ def save_theme(theme):
 def _load_config():
     config = {"theme": "dark", "encoder": "zlib",
               "display": {"resolutions": [], "scales": []}}
+    config_exists = os.path.isfile(CONFIG_FILE)
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
             loaded = json.load(fh)
@@ -177,30 +179,28 @@ def _load_config():
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
         pass
 
-    # 将历史配置合并到统一配置文件，保留用户已有设置。
-    legacy = (("theme.json", "theme"), ("encoder.json", "encoder"))
-    for filename, key in legacy:
-        if config.get(key) not in (None, "dark", "zlib"):
-            continue
-        try:
-            with open(filename, "r", encoding="utf-8") as fh:
-                value = json.load(fh).get(key)
-            if value:
-                config[key] = value
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
-            pass
     if not isinstance(config.get("display"), dict):
         config["display"] = {"resolutions": [], "scales": []}
-    try:
-        with open("display.json", "r", encoding="utf-8") as fh:
-            legacy_display = json.load(fh)
-        if not config["display"].get("resolutions"):
-            config["display"]["resolutions"] = legacy_display.get("resolutions", [])
-        if not config["display"].get("scales"):
-            config["display"]["scales"] = legacy_display.get("scales", [])
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        pass
-    _save_config(config)
+    if not config_exists:
+        # 仅在首次创建统一配置时迁移历史文件，避免覆盖 config.json 的有效值。
+        for filename, key in (("theme.json", "theme"), ("encoder.json", "encoder")):
+            try:
+                with open(filename, "r", encoding="utf-8") as fh:
+                    value = json.load(fh).get(key)
+                if value:
+                    config[key] = value
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                pass
+        try:
+            with open("display.json", "r", encoding="utf-8") as fh:
+                legacy_display = json.load(fh)
+            config["display"] = {
+                "resolutions": legacy_display.get("resolutions", []),
+                "scales": legacy_display.get("scales", []),
+            }
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            pass
+        _save_config(config)
     return config
 
 
@@ -608,7 +608,7 @@ def _display_info():
                 _display_default = {
                     "width": int(current.dmPelsWidth),
                     "height": int(current.dmPelsHeight),
-                    "scale": scale,
+                    "scale": 100,
                 }
             return {
                 "supported": True,
@@ -652,7 +652,7 @@ def _apply_display_info(data):
         scale = int(data.get("scale"))
     except (TypeError, ValueError):
         return {"ok": False, "error": "分辨率或缩放参数无效"}
-    if width < 640 or height < 480 or scale not in (100, 125, 150, 175, 200):
+    if width < 640 or height < 480 or scale != 100:
         return {"ok": False, "error": "分辨率或缩放参数超出范围"}
     try:
         import ctypes

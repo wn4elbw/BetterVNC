@@ -117,6 +117,7 @@ python/                # 内置 Python 3.14 嵌入式运行环境（含 tkinter�
 get-pip.py             # pip 引导脚本（首次运行自动安装模块时使用）
 log/                   # 服务端运行日志（按日期保存，运行时自动生成）
 docs/                  # 项目文档（中文）
+config.json            # 主题、编码器和显示自定义选项统一配置
 cert.pem / key.pem     # 首次运行自动生成的自签名证书
 ```
 

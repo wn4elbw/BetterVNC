@@ -105,7 +105,6 @@
 **/logs/
 
 # Environment and secrets
-config.json
 display.json
 **/.env
 **/.env.local
