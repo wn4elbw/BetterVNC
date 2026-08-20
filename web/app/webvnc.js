@@ -85,7 +85,7 @@
             ["Ctrl", "Alt", " ", "Alt", "Ctrl"],
         ];
         const NUMPAD = [
-            ["NumLock", "KPDiv", "KPMul", "KPSub"],
+            ["KPDiv", "KPMul", "KPSub"],
             ["KP7", "KP8", "KP9", "KPAdd"],
             ["KP4", "KP5", "KP6", "KPAdd"],
             ["KP1", "KP2", "KP3", "KPEnter"],
@@ -132,57 +132,58 @@
             } catch (err) { /* 忽略 */ }
         }
 
+        function makeKey(k, label, flex, t) {
+            const b = document.createElement("button");
+            b.textContent = label;
+            b.style.cssText = "flex:" + flex +
+                ";padding:3px 2px;min-height:24px;background:" + t.panel +
+                ";border:1px solid " + t.input + ";border-radius:4px;color:" + t.fg +
+                ";font-size:11px;cursor:pointer;font-family:inherit;line-height:1.2";
+            b.addEventListener("click", () => press(k));
+            return b;
+        }
+
         function render() {
             body.innerHTML = "";
             const t = theme.palette();
-            const kb = document.createElement("div");
-            kb.style.cssText = "display:flex;flex-direction:column;gap:6px";
+            const wrap = document.createElement("div");
+            wrap.style.cssText = "display:flex;gap:10px;align-items:stretch;height:100%";
+
+            /* 主键盘（左侧，flex 撑满） */
+            const main = document.createElement("div");
+            main.style.cssText = "display:flex;flex-direction:column;gap:4px;flex:1;min-width:0";
             for (const row of ROWS) {
                 const r = document.createElement("div");
-                r.style.cssText = "display:flex;gap:6px";
+                r.style.cssText = "display:flex;gap:3px;flex:1";
                 for (const k of row) {
-                    const b = document.createElement("button");
-                    b.textContent = k;
                     const wide = ["Back", "Tab", "Caps", "Enter", "Shift", "Ctrl", "Alt", " "].includes(k);
-                    b.style.cssText = "flex:" + (k === " " ? "6" : wide ? "1.6" : "1") +
-                        ";padding:8px 4px;background:" + t.panel +
-                        ";border:1px solid " + t.input + ";border-radius:6px;color:" + t.fg +
-                        ";font-size:13px;cursor:pointer;font-family:inherit";
-                    if (k === " ") b.style.minHeight = "32px";
-                    b.addEventListener("click", () => press(k));
-                    r.appendChild(b);
+                    const flex = k === " " ? "6" : wide ? "1.6" : "1";
+                    r.appendChild(makeKey(k, k, flex, t));
                 }
-                kb.appendChild(r);
+                main.appendChild(r);
             }
-            const sep = document.createElement("div");
-            sep.style.cssText = "height:1px;background:" + t.border + ";margin:4px 0";
-            kb.appendChild(sep);
-            const npTitle = document.createElement("div");
-            npTitle.textContent = "小键盘";
-            npTitle.style.cssText = "color:" + t.muted + ";font-size:12px";
-            kb.appendChild(npTitle);
+
+            /* 小键盘（右侧，固定宽度） */
+            const npad = document.createElement("div");
+            npad.style.cssText = "display:flex;flex-direction:column;gap:4px;flex:0 0 200px;border-left:1px solid " +
+                t.border + ";padding-left:10px";
             for (const row of NUMPAD) {
                 const r = document.createElement("div");
-                r.style.cssText = "display:flex;gap:6px";
+                r.style.cssText = "display:flex;gap:3px;flex:1";
                 for (const k of row) {
-                    const b = document.createElement("button");
                     const label = { "KP0": "0", "KP1": "1", "KP2": "2", "KP3": "3",
                         "KP4": "4", "KP5": "5", "KP6": "6", "KP7": "7",
                         "KP8": "8", "KP9": "9", "KPDiv": "/", "KPMul": "*",
-                        "KPSub": "-", "KPAdd": "+", "KPDec": ".", "KPEnter": "Enter",
-                        "NumLock": "NumLock" }[k] || k;
-                    b.textContent = label;
-                    const wide = ["KP0", "KPEnter", "NumLock"].includes(k);
-                    b.style.cssText = "flex:" + (wide ? "2" : "1") +
-                        ";padding:8px 4px;background:" + t.panel +
-                        ";border:1px solid " + t.input + ";border-radius:6px;color:" + t.fg +
-                        ";font-size:13px;cursor:pointer;font-family:inherit";
-                    b.addEventListener("click", () => press(k));
-                    r.appendChild(b);
+                        "KPSub": "-", "KPAdd": "+", "KPDec": ".", "KPEnter": "Enter" }[k] || k;
+                    const wide = ["KP0", "KPEnter"].includes(k);
+                    r.appendChild(makeKey(k, label, wide ? "2" : "1", t));
                 }
-                kb.appendChild(r);
+                npad.appendChild(r);
             }
-            body.appendChild(kb);
+
+            wrap.appendChild(main);
+            wrap.appendChild(npad);
+            body.appendChild(wrap);
         }
 
         function show() {
