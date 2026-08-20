@@ -32,6 +32,7 @@ import json
 import locale
 import mimetypes
 import os
+import platform
 import shutil
 import socket
 import ssl
@@ -312,40 +313,66 @@ def ensure_dependencies():
 
     base = os.path.dirname(os.path.abspath(__file__))
     py = sys.executable
-    log("未检测到运行库 Pillow，开始自动安装（需要联网）...")
+    log(f"未检测到运行库 Pillow，开始自动安装（需要联网）...")
+    log(f"解释器: {py}")
+    log(f"项目目录: {base}")
 
-    def run_quiet(cmd):
+    def run_quiet(cmd, timeout=600):
         return subprocess.run(cmd, capture_output=True, text=True,
-                              creationflags=NO_WINDOW)
+                              creationflags=NO_WINDOW, timeout=timeout)
 
     # 1. 确认 pip 可用，嵌入式 Python 首次运行需要先引导 pip
-    probe = run_quiet([py, "-m", "pip", "--version"])
+    log("步骤 1/3：检查 pip 是否可用 ...")
+    try:
+        probe = run_quiet([py, "-m", "pip", "--version"], timeout=60)
+    except subprocess.TimeoutExpired:
+        log("pip 探测超时，视为不可用")
+        probe = type("R", (), {"returncode": -1})()
+    log(f"pip 探测: {'可用 ' + (probe.stdout or '').strip() if probe.returncode == 0 else '不可用'}")
     if probe.returncode != 0:
         get_pip = os.path.join(base, "get-pip.py")
         if not (os.path.exists(get_pip) and _valid_python_source(get_pip)):
-            log("正在下载 get-pip.py ...")
+            log("步骤 1.1：下载 get-pip.py ...")
             if not _download_file(
                     "https://bootstrap.pypa.io/get-pip.py", get_pip):
                 log("请手动将 get-pip.py 放入程序目录后重试")
                 sys.exit(1)
-        log("正在引导安装 pip ...")
-        res = run_quiet([py, get_pip, "--no-warn-script-location"])
+            log(f"get-pip.py 就绪: {os.path.getsize(get_pip)} 字节")
+        log("步骤 1.2：引导安装 pip ...")
+        try:
+            res = run_quiet([py, get_pip, "--no-warn-script-location"])
+        except subprocess.TimeoutExpired:
+            log("pip 引导超时")
+            sys.exit(1)
         if res.returncode != 0:
             log(f"pip 安装失败: {(res.stderr or res.stdout or '').strip()}")
             sys.exit(1)
+        log("pip 引导安装完成")
 
     # 2. 安装 Pillow
-    log("正在安装 Pillow ...")
-    res = run_quiet([py, "-m", "pip", "install", "--no-warn-script-location",
-                     "pillow"])
+    log("步骤 2/3：安装 Pillow ...")
+    try:
+        res = run_quiet([py, "-m", "pip", "install", "--no-warn-script-location",
+                         "pillow"])
+    except subprocess.TimeoutExpired:
+        log("Pillow 安装超时")
+        sys.exit(1)
     if res.returncode != 0:
         log(f"Pillow 安装失败: {(res.stderr or res.stdout or '').strip()}")
         sys.exit(1)
+    log(f"Pillow 安装完成: {(res.stdout or '').strip().splitlines()[-1] if (res.stdout or '').strip() else ''}")
 
-    # 3. 重启自身，重新加载已安装的模块（相对路径启动）
-    log("Pillow 安装完成，正在重启服务...")
-    os.chdir(BASE)
-    os.execv(sys.executable, [sys.executable, "webvnc.py"] + sys.argv[1:])
+    # 3. 重启自身，重新加载已安装的模块（绝对路径，Windows 兼容）
+    log("步骤 3/3：重启服务以加载新模块 ...")
+    try:
+        py_abs = os.path.abspath(sys.executable)
+        script = os.path.join(base, "webvnc.py")
+        args = [py_abs, "-u", script] + sys.argv[1:]
+        subprocess.Popen(args, cwd=base, creationflags=NO_WINDOW)
+        log(f"已重新启动: {' '.join(args)}")
+    except Exception as exc:
+        log(f"重启失败: {exc!r}")
+    os._exit(0)
 
 
 # ---------------------------------------------------------------------------
@@ -1885,6 +1912,23 @@ def main():
         sys.stderr.reconfigure(encoding="utf-8")
     except Exception:
         pass
+    if IS_WINDOWS:
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+            ctypes.windll.kernel32.SetConsoleCP(65001)
+        except Exception:
+            pass
+    os.environ.setdefault("PYTHONUTF8", "1")
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
+    log(f"========== BetterVNC 启动 ==========")
+    log(f"程序目录: {BASE}")
+    log(f"Python: {sys.executable} (v{sys.version.split()[0]})")
+    if IS_WINDOWS:
+        log(f"系统: Windows {platform.version()}")
+    else:
+        log(f"系统: {os.name} / {platform.system()}")
 
     ap = argparse.ArgumentParser(
         description="BetterVNC - Windows 远程管理工具（VNC + HTTPS 文件管理 + 终端）")

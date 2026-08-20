@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gui.py - BetterVNC 图形控制台（Tkinter）
+run.py - BetterVNC 图形控制台（Tkinter）
 
 功能：
   1. 启动/停止服务端（webvnc.py），实时查看服务端日志
@@ -9,7 +9,7 @@ gui.py - BetterVNC 图形控制台（Tkinter）
   4. 模块管理：配置内置 Python 3.14 的模块（pip 安装 / 更新 / 从 whl 文件导入）
   5. 内置 CMD：执行命令并获取输出（无弹窗）
 
-运行：python gui.py（推荐由 run.bat 使用内置 Python 启动）
+运行：python run.py（使用项目内置 Python 直接运行即可）
 """
 import os
 import queue
@@ -348,6 +348,22 @@ class App:
 
 
 def main():
+    # 强制 UTF-8：避免 Windows 控制台/日志中文乱码
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    if IS_WINDOWS:
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+            ctypes.windll.kernel32.SetConsoleCP(65001)
+        except Exception:
+            pass
+    os.environ.setdefault("PYTHONUTF8", "1")
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
     root = tk.Tk()
     try:
         ttk.Style().theme_use("vista")

@@ -15,10 +15,10 @@ HTTPS 文件管理器和命令行终端。在 Windows 上运行后，即可通�
   - 打包为 zip 下载
 - **命令行终端**：命令面板，提交即返回、轮询增量输出，长命令可中途停止
 - **服务端日志面板**：网页实时查看服务端日志（`log/` 目录按日期保存）
-- **图形控制台（gui.py）**：启动/停止服务、实时日志、端口状态、本机 IP 一键浏览器
+- **图形控制台（run.py）**：启动/停止服务、实时日志、端口状态、本机 IP 一键浏览器
   访问、内置 Python 模块管理（pip 安装/更新/卸载/whl 导入）、内置 CMD
 - **全部相对路径启动**：项目文件夹整体移动后无需修改任何配置
-- **一键启动**：项目内置 Python 3.14 运行环境（含 tkinter），双击 `run.bat` 即可；
+- **一键启动**：项目内置 Python 3.14 运行环境（含 tkinter），直接运行 `python\python.exe run.py` 即可；
   缺少模块时自动安装并重启
 - **无点击连接**：打开页面自动连接远程桌面
 - **界面固定无弹窗**：四象限布局可拖拽调整，全部操作面板内联完成
@@ -34,9 +34,13 @@ HTTPS 文件管理器和命令行终端。在 Windows 上运行后，即可通�
 
 ## 快速开始（Windows）
 
-双击 `run.bat` 即可启动：
+使用项目内置 Python 直接运行图形控制台：
 
-1. 脚本自动切换控制台为 UTF-8 编码，使用项目内置的 `python\python.exe`
+```
+python\python.exe run.py
+```
+
+1. 程序自动切换控制台为 UTF-8 编码，使用项目内置的 `python\python.exe`
 2. 首次运行时自动检测所需模块（Pillow）：
    - 缺少 pip 时先运行项目自带的 `get-pip.py` 引导安装
    - 随后自动安装 Pillow 并重启服务
@@ -102,9 +106,8 @@ python webvnc.py --no-https --port 6080
 ## 项目结构
 
 ```
-run.bat                # 一键启动脚本（UTF-8，使用内置 Python，启动图形控制台）
+run.py                 # 图形控制台（服务控制/日志/状态/本机IP/模块管理/CMD）
 webvnc.py              # 服务端（VNC Server + HTTPS + 文件/命令 API）
-gui.py                 # Tkinter 图形控制台（服务控制/日志/状态/本机IP/模块管理/CMD）
 web/                   # Web 前端
   vnc.html             # 主页面（四象限十字布局）
   app/                 # noVNC 应用资源 + 自定义面板（webvnc.js / panels.css）
