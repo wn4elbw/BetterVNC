@@ -168,7 +168,7 @@ def save_theme(theme):
 
 
 def _load_config():
-    config = {"theme": "dark", "encoder": "zlib"}
+    config = {"theme": "dark", "encoder": "zlib", "show_performance": False}
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
             loaded = json.load(fh)
@@ -202,6 +202,18 @@ def save_encoder(encoder):
         encoder = "zlib"
     config = _load_config()
     config["encoder"] = encoder
+    _save_config(config)
+
+
+def load_performance():
+    """读取性能面板显示配置，默认关闭"""
+    return bool(_load_config().get("show_performance", False))
+
+
+def save_performance(enabled):
+    """保存性能面板显示配置到文件"""
+    config = _load_config()
+    config["show_performance"] = bool(enabled)
     _save_config(config)
 
 
@@ -1849,6 +1861,8 @@ class WebHandler(BaseHTTPRequestHandler):
         if path == "/api/encoder":
             return self._send_json({"encoder": load_encoder(),
                                     "encoders": list(_ENCODERS)})
+        if path == "/api/performance":
+            return self._send_json({"show_performance": load_performance()})
         if path == "/api/vnc/status":
             srv = WebHandler.vnc_server
             return self._send_json({
@@ -1907,6 +1921,15 @@ class WebHandler(BaseHTTPRequestHandler):
                 encoder = data.get("encoder", "zlib")
                 save_encoder(encoder)
                 return self._send_json({"encoder": encoder, "saved": True})
+            except (ValueError, OSError) as exc:
+                return self._send_json({"error": str(exc)}, 500)
+        if path == "/api/performance":
+            try:
+                body = self._read_body() or b"{}"
+                data = json.loads(body)
+                enabled = bool(data.get("show_performance", False))
+                save_performance(enabled)
+                return self._send_json({"show_performance": enabled, "saved": True})
             except (ValueError, OSError) as exc:
                 return self._send_json({"error": str(exc)}, 500)
         if path == "/api/log/new":

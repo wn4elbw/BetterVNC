@@ -1,4 +1,5 @@
 {
   "theme": "dark",
-  "encoder": "zlib"
+  "encoder": "zlib",
+  "show_performance": false
 }

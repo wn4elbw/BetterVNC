@@ -1447,6 +1447,11 @@
             toggle.addEventListener("change", () => {
                 enabled = toggle.checked;
                 overlay.style.display = enabled ? "block" : "none";
+                fetch("/api/performance", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ show_performance: enabled }),
+                }).catch(() => { /* 忽略 */ });
                 if (enabled) {
                     frames = 0;
                     lastCount = performance.now();
@@ -1464,6 +1469,25 @@
                     }
                 }
             });
+            fetch("/api/performance")
+                .then((r) => (r.ok ? r.json() : null))
+                .then((d) => {
+                    if (!d || typeof d.show_performance !== "boolean") return;
+                    enabled = d.show_performance;
+                    toggle.checked = enabled;
+                    overlay.style.display = enabled ? "block" : "none";
+                    if (enabled) {
+                        lastCount = performance.now();
+                        hookRfb();
+                        ping();
+                        tick();
+                        timers = [
+                            setInterval(tick, 500),
+                            setInterval(ping, 2000),
+                        ];
+                    }
+                })
+                .catch(() => { /* 忽略 */ });
         }
 
         return { init };
