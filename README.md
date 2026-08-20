@@ -43,7 +43,7 @@ python\python.exe run.py
 
 1. 程序自动切换控制台为 UTF-8 编码，使用项目内置的 `python\python.exe`
 2. 首次运行时自动检测所需模块（Pillow）：
-   - 缺少 pip 时先运行项目自带的 `get-pip.py` 引导安装
+   - 缺少 pip 时先运行 `python/get-pip.py` 引导安装
    - 随后自动安装 Pillow 并重启服务
 3. 启动完成后，浏览器访问：
 
@@ -115,7 +115,8 @@ web/                   # Web 前端
   core/                # noVNC 核心库（RFB 客户端）
   vendor/              # 第三方库（pako）
 python/                # 内置 Python 3.14 嵌入式运行环境（含 tkinter，Windows amd64）
-get-pip.py             # pip 引导脚本（首次运行自动安装模块时使用）
+python/get-pip.py      # 随程序预置的 pip 引导脚本
+get-pip.py             # 下载/修复用的 pip 引导脚本（保留）
 log/                   # 服务端运行日志（按日期保存，运行时自动生成）
 docs/                  # 项目文档（中文）
 config.json            # 主题和编码器统一配置

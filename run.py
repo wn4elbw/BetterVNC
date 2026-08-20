@@ -36,6 +36,49 @@ def embedded_python():
     return sys.executable
 
 
+def ensure_python_packages():
+    """首次启动时为内置 Python 准备 pip 和 Pillow。"""
+    exe = embedded_python()
+    if exe == sys.executable and not IS_WINDOWS:
+        return
+
+    def run_python(args, timeout=180):
+        return subprocess.run(
+            [exe] + args,
+            cwd=BASE,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            creationflags=NO_WINDOW,
+        )
+
+    try:
+        pip_check = run_python(["-m", "pip", "--version"], timeout=20)
+        if pip_check.returncode != 0:
+            candidates = [
+                os.path.join(EMBED_DIR, "get-pip.py"),
+                os.path.join(BASE, "get-pip.py"),
+            ]
+            get_pip = next((path for path in candidates if os.path.isfile(path)), None)
+            if not get_pip:
+                raise FileNotFoundError("get-pip.py")
+            result = run_python([get_pip])
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr or result.stdout)
+
+        pillow_check = run_python(["-c", "from PIL import Image"], timeout=20)
+        if pillow_check.returncode != 0:
+            result = run_python([
+                "-m", "pip", "install", "--disable-pip-version-check", "--no-input", "Pillow",
+            ], timeout=600)
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr or result.stdout)
+    except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
+        print(f"内置 Python 环境准备失败: {exc}", file=sys.stderr)
+
+
 def local_ips():
     """获取本机全部 IPv4 地址（去重，含回环地址置底）"""
     ips = set()
@@ -580,6 +623,7 @@ def main():
             pass
     os.environ.setdefault("PYTHONUTF8", "1")
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    ensure_python_packages()
 
     root = tk.Tk()
     try:
