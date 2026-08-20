@@ -76,11 +76,7 @@
         const sel = $("noVNC_setting_resize");
         const btns = document.querySelectorAll(".zoom_btn");
         const resolution = $("display_resolution_select");
-        const scale = $("display_scale_select");
-        const resolutionDelete = $("display_resolution_delete");
-        const scaleDelete = $("display_scale_delete");
         const reset = $("display_reset_btn");
-        let custom = { resolutions: [], scales: [] };
 
         function sync() {
             const t = theme.palette();
@@ -109,7 +105,7 @@
         sel.addEventListener("change", sync);
         sync();
 
-        function setOptions(select, options, value, label, customValues, type) {
+        function setOptions(select, options, value, label) {
             if (!select) return;
             select.textContent = "";
             if (!options.length) {
@@ -125,22 +121,15 @@
                 const option = document.createElement("option");
                 option.value = item.value;
                 option.textContent = item.label;
-                option.dataset.custom = customValues.has(item.value) ? "1" : "";
                 select.appendChild(option);
             });
-            const add = document.createElement("option");
-            add.value = "__custom__";
-            add.textContent = "自定义...";
-            add.dataset.custom = "add";
-            select.appendChild(add);
             if (value !== undefined && [...select.options].some((item) => item.value === String(value))) {
                 select.value = String(value);
             }
-            select.dataset.type = type;
         }
 
         function loadDisplay() {
-            if (!resolution || !scale) return;
+            if (!resolution) return;
             fetch("/api/display")
                 .then((r) => (r.ok ? r.json() : null))
                 .then((data) => {
@@ -150,39 +139,24 @@
                         label: item.width + " x " + item.height,
                     }));
                     const current = data.current || {};
-                    custom = data.custom || { resolutions: [], scales: [] };
                     setOptions(resolution, modes,
                         current.width && current.height ? current.width + "x" + current.height : "",
-                        "不可用", new Set((custom.resolutions || []).map((item) => item.width + "x" + item.height)), "resolution");
-                    setOptions(scale, (data.scales || []).map((item) => ({
-                        value: String(item), label: item + "%",
-                    })), data.scale, "不可用", new Set((custom.scales || []).map(String)), "scale");
-                    scale.value = "100";
-                    updateDeleteButtons();
+                        "不可用");
                     if (!data.supported) {
+                        resolution.disabled = true;
                         resolution.title = data.error || "当前平台不支持物理显示设置";
-                        scale.title = data.error || "当前平台不支持系统缩放设置";
                     }
                 })
                 .catch(() => {
                     setOptions(resolution, [], undefined, "读取失败");
-                    setOptions(scale, [], undefined, "读取失败");
                 });
         }
 
         async function applyDisplay() {
-            if (!resolution || !scale || resolution.disabled || scale.disabled) return;
-            if (resolution.value === "__custom__") {
-                const value = window.prompt("输入分辨率，例如 1920x1080：", "1920x1080");
-                const match = value && /^(\d+)\s*x\s*(\d+)$/.exec(value.trim());
-                if (!match) return loadDisplay();
-                await displayAction({ action: "add_resolution", width: Number(match[1]), height: Number(match[2]) });
-                return loadDisplay();
-            }
+            if (!resolution || resolution.disabled) return;
             const match = /^(\d+)x(\d+)$/.exec(resolution.value);
             if (!match) return;
             resolution.disabled = true;
-            scale.disabled = true;
             try {
                 const response = await fetch("/api/display", {
                     method: "POST",
@@ -190,20 +164,16 @@
                     body: JSON.stringify({
                         width: Number(match[1]),
                         height: Number(match[2]),
-                        scale: 100,
                     }),
                 });
                 const result = await response.json();
                 if (!result.ok) {
                     resolution.title = result.error || "应用显示设置失败";
-                    scale.title = resolution.title;
                 }
             } catch (err) {
                 resolution.title = "应用显示设置失败";
-                scale.title = resolution.title;
             } finally {
                 resolution.disabled = false;
-                scale.disabled = false;
                 loadDisplay();
             }
         }
@@ -216,35 +186,13 @@
             });
         }
 
-        function updateDeleteButtons() {
-            const resolutionOption = resolution && resolution.selectedOptions[0];
-            const scaleOption = scale && scale.selectedOptions[0];
-            if (resolutionDelete) resolutionDelete.style.display = resolutionOption && resolutionOption.dataset.custom === "1" ? "block" : "none";
-            if (scaleDelete) scaleDelete.style.display = scaleOption && scaleOption.dataset.custom === "1" ? "block" : "none";
-        }
-
         async function resetDisplay() {
             await displayAction({ action: "reset" });
             loadDisplay();
         }
 
-        if (resolution && scale) {
-            resolution.addEventListener("change", () => { updateDeleteButtons(); applyDisplay(); });
-            scale.addEventListener("change", async () => {
-                if (scale.value === "__custom__") {
-                    const value = Number(window.prompt("输入系统缩放百分比（50-500）：", "100"));
-                    if (Number.isFinite(value) && value >= 50 && value <= 500) {
-                        await displayAction({ action: "add_scale", value });
-                    }
-                    loadDisplay();
-                    return;
-                }
-                scale.value = "100";
-                updateDeleteButtons();
-                applyDisplay();
-            });
-            resolutionDelete.addEventListener("click", async () => { await displayAction({ action: "delete_resolution", value: resolution.value }); loadDisplay(); });
-            scaleDelete.addEventListener("click", async () => { await displayAction({ action: "delete_scale", value: scale.value }); loadDisplay(); });
+        if (resolution) {
+            resolution.addEventListener("change", applyDisplay);
             reset.addEventListener("click", resetDisplay);
             loadDisplay();
         }

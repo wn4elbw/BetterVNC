@@ -1,8 +1,4 @@
 {
   "theme": "dark",
-  "encoder": "zlib",
-  "display": {
-    "resolutions": [],
-    "scales": []
-  }
+  "encoder": "zlib"
 }

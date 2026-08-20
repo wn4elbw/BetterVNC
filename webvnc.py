@@ -168,8 +168,7 @@ def save_theme(theme):
 
 
 def _load_config():
-    config = {"theme": "dark", "encoder": "zlib",
-              "display": {"resolutions": [], "scales": []}}
+    config = {"theme": "dark", "encoder": "zlib"}
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
             loaded = json.load(fh)
@@ -178,8 +177,6 @@ def _load_config():
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
         pass
 
-    if not isinstance(config.get("display"), dict):
-        config["display"] = {"resolutions": [], "scales": []}
     if not os.path.isfile(CONFIG_FILE):
         _save_config(config)
     return config
@@ -188,67 +185,6 @@ def _load_config():
 def _save_config(config):
     with open(CONFIG_FILE, "w", encoding="utf-8") as fh:
         json.dump(config, fh, ensure_ascii=False, indent=2)
-
-
-def _load_display_custom():
-    try:
-        data = _load_config().get("display", {})
-        resolutions = []
-        for item in data.get("resolutions", []):
-            width, height = int(item["width"]), int(item["height"])
-            if 640 <= width <= 16384 and 480 <= height <= 16384:
-                resolutions.append({"width": width, "height": height})
-        scales = []
-        for value in data.get("scales", []):
-            value = int(value)
-            if 50 <= value <= 500:
-                scales.append(value)
-        return {"resolutions": resolutions, "scales": scales}
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        return {"resolutions": [], "scales": []}
-
-
-def _save_display_custom(data):
-    config = _load_config()
-    config["display"] = data
-    _save_config(config)
-
-
-def _display_custom_action(data):
-    custom = _load_display_custom()
-    action = data.get("action")
-    try:
-        if action == "reset":
-            custom = {"resolutions": [], "scales": []}
-        elif action == "add_resolution":
-            width, height = int(data.get("width")), int(data.get("height"))
-            if not (640 <= width <= 16384 and 480 <= height <= 16384):
-                return {"ok": False, "error": "分辨率范围无效"}
-            item = {"width": width, "height": height}
-            if item not in custom["resolutions"]:
-                custom["resolutions"].append(item)
-        elif action == "delete_resolution":
-            custom["resolutions"] = [
-                item for item in custom["resolutions"]
-                if f'{item["width"]}x{item["height"]}' != str(data.get("value"))
-            ]
-        elif action == "add_scale":
-            value = int(data.get("value"))
-            if not 50 <= value <= 500:
-                return {"ok": False, "error": "缩放范围应为 50% 至 500%"}
-            if value not in custom["scales"]:
-                custom["scales"].append(value)
-        elif action == "delete_scale":
-            value = int(data.get("value"))
-            custom["scales"] = [item for item in custom["scales"] if item != value]
-        else:
-            return {"ok": False, "error": "无效操作"}
-    except (TypeError, ValueError):
-        return {"ok": False, "error": "参数无效"}
-    custom["scales"].sort()
-    custom["resolutions"].sort(key=lambda item: (item["width"] * item["height"], item["width"]))
-    _save_display_custom(custom)
-    return {"ok": True, "custom": custom}
 
 
 _ENCODERS = ("zlib", "hextile", "raw")
@@ -507,7 +443,7 @@ def get_system_stats():
 
 
 def _display_info():
-    """读取目标主机当前显示分辨率、可用模式与系统缩放比例。"""
+    """读取当前分辨率及不超过启动分辨率的驱动模式。"""
     if IS_WINDOWS:
         try:
             import ctypes
@@ -568,73 +504,50 @@ def _display_info():
                 index += 1
             modes.sort(key=lambda item: (item["width"] * item["height"], item["width"]))
 
-            scale = 100
-            try:
-                dpi = user32.GetDpiForSystem()
-                if dpi:
-                    scale = round(int(dpi) / 96 * 100)
-            except Exception:
-                pass
-            custom = _load_display_custom()
-            standard = [
-                {"width": 1024, "height": 768}, {"width": 1280, "height": 720},
-                {"width": 1280, "height": 800}, {"width": 1366, "height": 768},
-                {"width": 1440, "height": 900}, {"width": 1600, "height": 900},
-                {"width": 1920, "height": 1080}, {"width": 2560, "height": 1440},
-                {"width": 3840, "height": 2160},
-            ]
-            modes = modes + [item for item in standard if item not in modes]
             global _display_default
             if _display_default is None:
                 _display_default = {
                     "width": int(current.dmPelsWidth),
                     "height": int(current.dmPelsHeight),
-                    "scale": 100,
                 }
+            max_width = _display_default["width"]
+            max_height = _display_default["height"]
+            modes = [item for item in modes
+                     if item["width"] <= max_width and item["height"] <= max_height]
             return {
                 "supported": True,
                 "platform": "windows",
                 "current": {"width": int(current.dmPelsWidth), "height": int(current.dmPelsHeight)},
-                "modes": modes + [item for item in custom["resolutions"] if item not in modes],
-                "scale": scale,
-                "scales": sorted(set([100, 125, 150, 175, 200, 225, 250, 300] + custom["scales"])),
-                "custom": custom,
+                "maximum": {"width": max_width, "height": max_height},
+                "modes": modes,
             }
         except Exception as exc:
             return {"supported": False, "error": str(exc), "platform": "windows"}
 
     width, height = 1024, 768
-    custom = _load_display_custom()
     return {
         "supported": False,
         "platform": sys.platform,
         "current": {"width": width, "height": height},
-        "modes": [{"width": width, "height": height}] + [
-            item for item in [
-                {"width": 1280, "height": 720}, {"width": 1280, "height": 800},
-                {"width": 1366, "height": 768}, {"width": 1440, "height": 900},
-                {"width": 1920, "height": 1080}, {"width": 2560, "height": 1440},
-            ] if item != {"width": width, "height": height}
-        ],
-        "scale": 100,
-        "scales": sorted(set([100, 125, 150, 175, 200, 225, 250, 300] + custom["scales"])),
-        "custom": custom,
+        "maximum": {"width": width, "height": height},
+        "modes": [{"width": width, "height": height}],
         "error": "当前平台未提供物理显示配置接口",
     }
 
 
 def _apply_display_info(data):
-    """应用目标主机显示分辨率与 Windows 用户缩放设置。"""
+    """应用驱动支持且不超过启动时实际屏幕大小的分辨率。"""
     if not IS_WINDOWS:
         return {"ok": False, "error": "当前平台未提供物理显示配置接口"}
     try:
         width = int(data.get("width"))
         height = int(data.get("height"))
-        scale = int(data.get("scale"))
     except (TypeError, ValueError):
-        return {"ok": False, "error": "分辨率或缩放参数无效"}
-    if width < 640 or height < 480 or scale != 100:
-        return {"ok": False, "error": "分辨率或缩放参数超出范围"}
+        return {"ok": False, "error": "分辨率参数无效"}
+    info = _display_info()
+    allowed = {(item["width"], item["height"]) for item in info.get("modes", [])}
+    if (width, height) not in allowed:
+        return {"ok": False, "error": "分辨率必须从实际屏幕支持的列表中选择"}
     try:
         import ctypes
         from ctypes import wintypes
@@ -670,18 +583,13 @@ def _apply_display_info(data):
         if result != 0:
             return {"ok": False, "error": f"系统拒绝分辨率设置（代码 {result}）"}
 
-        import winreg
-        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Control Panel\Desktop") as key:
-            winreg.SetValueEx(key, "LogPixels", 0, winreg.REG_DWORD, round(96 * scale / 100))
-            winreg.SetValueEx(key, "Win8DpiScaling", 0, winreg.REG_DWORD, 1)
-        user32.SendMessageTimeoutW(0xFFFF, 0x001A, 0, "ImmersiveColorSet", 2, 1000, None)
-        return {"ok": True, "scale": scale, "requires_logoff": True}
+        return {"ok": True, "width": width, "height": height}
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
 
 
 def _reset_display_info():
-    """恢复服务启动时记录的系统默认分辨率和缩放设置。"""
+    """恢复服务启动时记录的系统默认分辨率。"""
     if not IS_WINDOWS:
         return {"ok": True, "reset": True}
     default = _display_default
@@ -1987,11 +1895,8 @@ class WebHandler(BaseHTTPRequestHandler):
             try:
                 body = self._read_body() or b"{}"
                 data = json.loads(body)
-                if data.get("action"):
-                    result = _display_custom_action(data)
-                    if result.get("ok") and data.get("action") == "reset":
-                        result.update(_reset_display_info())
-                    return self._send_json(result)
+                if data.get("action") == "reset":
+                    return self._send_json(_reset_display_info())
                 return self._send_json(_apply_display_info(data))
             except (ValueError, OSError) as exc:
                 return self._send_json({"ok": False, "error": str(exc)}, 400)

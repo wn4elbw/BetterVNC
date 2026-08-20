@@ -2,15 +2,11 @@
 """
 run.py - BetterVNC 图形控制台（Tkinter）
 
-功能：
-  1. 启动/停止服务端（webvnc.py），实时查看服务端日志
-  2. 查看服务端运行状态与开放端口（Web / VNC）
-  3. 查看本机所有 IP，点击 IP 后的浏览器图标直接打开访问地址
-  4. 模块管理：配置内置 Python 3.14 的模块（pip 安装 / 更新 / 从 whl 文件导入）
-  5. 内置 CMD：执行命令并获取输出（无弹窗）
+顶栏页面：首页、环境、命令行、配置。
 
 运行：python run.py（使用项目内置 Python 直接运行即可）
 """
+import json
 import os
 import queue
 import socket
@@ -29,12 +25,12 @@ NO_WINDOW = 0x08000000 if IS_WINDOWS else 0
 _ICON_BROWSER_B64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAxUlEQVR4nK1TsRHDIBCTuCzhJqU9goejNStkJnsEWhfOGEoB+IAQO7lYDccjPf+CJxqQJABLFR5JssV/E0ua+0nqJ0nSFtc5Ji5gKqEALIPDWBNjbMl4AABKepyWdQCm2wcXAt6WFXiL5+DQ1WfeAiRpjsStNrwN5g4uXGw+kb/F3wkoacv2K4D7iabg3AB0mQdrMiwhN7HmeHtBC4YkvQ2b3OUWWs94zUcC9gECcPyRgHCWBmv3gBFAu40kznhlBTl+GecXvdGHj/dm8mMAAAAASUVORK5CYII="
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext, filedialog
+from tkinter import ttk, scrolledtext, filedialog, messagebox
 
 
 def embedded_python():
     """内置嵌入式 Python 相对路径；不存在时回退当前解释器"""
-    exe = os.path.join("python", "python.exe")
+    exe = os.path.join(BASE, "python", "python.exe")
     if os.path.isfile(exe):
         return exe
     return sys.executable
@@ -77,109 +73,313 @@ class App:
         self.logq = queue.Queue()
         self.cmdq = queue.Queue()
         self.icon = tk.PhotoImage(data=_ICON_BROWSER_B64)
+        self.python_var = tk.StringVar(value=os.path.abspath(embedded_python()))
+        self.config_data = {}
+        self.config_path = ""
 
         root.title("BetterVNC 控制台")
-        root.geometry("980x660")
-        root.minsize(860, 560)
-
-        main = ttk.Panedwindow(root, orient=tk.HORIZONTAL)
-        main.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-
-        main.add(self._build_left(main), weight=3)
-        main.add(self._build_right(main), weight=2)
-
+        root.geometry("1040x720")
+        root.minsize(900, 620)
+        self._build_shell()
+        self.show_page("home")
         self._refresh_status()
         self._poll_log()
         self._poll_cmd()
         root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    # ---------------- 界面构建 ----------------
-    def _build_left(self, parent):
-        frame = ttk.Frame(parent)
-        box = ttk.Labelframe(frame, text="服务控制")
-        box.pack(fill=tk.X, padx=4, pady=4)
+    def _build_shell(self):
+        top = ttk.Frame(self.root, padding=(12, 8))
+        top.pack(fill=tk.X)
+        ttk.Label(top, text="BetterVNC", font=("Segoe UI", 15, "bold")).pack(side=tk.LEFT, padx=(0, 24))
+        self.nav_buttons = {}
+        for key, label in (("home", "首页"), ("environment", "环境"),
+                           ("terminal", "命令行"), ("config", "配置")):
+            button = ttk.Button(top, text=label, width=10,
+                                command=lambda page=key: self.show_page(page))
+            button.pack(side=tk.LEFT, padx=3)
+            self.nav_buttons[key] = button
+        ttk.Separator(self.root).pack(fill=tk.X)
+        self.body = ttk.Frame(self.root, padding=10)
+        self.body.pack(fill=tk.BOTH, expand=True)
+        self.pages = {}
+        for key, builder in (("home", self._build_home),
+                             ("environment", self._build_environment),
+                             ("terminal", self._build_terminal),
+                             ("config", self._build_config)):
+            page = ttk.Frame(self.body)
+            self.pages[key] = page
+            builder(page)
 
-        row1 = ttk.Frame(box)
-        row1.pack(fill=tk.X, padx=6, pady=4)
-        self.status_label = ttk.Label(row1, text="○ 已停止", foreground="#888")
-        self.status_label.pack(side=tk.LEFT)
-        ttk.Label(row1, text="    Web 端口:").pack(side=tk.LEFT)
-        self.web_port = ttk.Entry(row1, width=7)
-        self.web_port.insert(0, "6080")
-        self.web_port.pack(side=tk.LEFT, padx=(2, 10))
-        ttk.Label(row1, text="VNC 端口:").pack(side=tk.LEFT)
-        self.vnc_port = ttk.Entry(row1, width=7)
-        self.vnc_port.insert(0, "5900")
-        self.vnc_port.pack(side=tk.LEFT, padx=(2, 10))
-        ttk.Label(row1, text="访问令牌:").pack(side=tk.LEFT)
-        self.token = ttk.Entry(row1, width=12, show="*")
-        self.token.pack(side=tk.LEFT, padx=2)
+    def show_page(self, name):
+        for page in self.pages.values():
+            page.pack_forget()
+        self.pages[name].pack(fill=tk.BOTH, expand=True)
+        for key, button in self.nav_buttons.items():
+            button.configure(state=tk.DISABLED if key == name else tk.NORMAL)
+        if name == "home":
+            self.refresh_ips()
+        elif name == "config":
+            self.refresh_config_files()
 
-        row2 = ttk.Frame(box)
-        row2.pack(fill=tk.X, padx=6, pady=(0, 6))
-        self.btn_start = ttk.Button(row2, text="启动服务", command=self.start_server)
-        self.btn_start.pack(side=tk.LEFT, padx=(0, 6))
-        self.btn_stop = ttk.Button(row2, text="停止服务",
-                                   command=self.stop_server, state=tk.DISABLED)
+    def _build_home(self, parent):
+        controls = ttk.Labelframe(parent, text="服务器")
+        controls.pack(fill=tk.X, pady=(0, 8))
+        row = ttk.Frame(controls, padding=8)
+        row.pack(fill=tk.X)
+        self.status_label = ttk.Label(row, text="○ 已停止", foreground="#777")
+        self.status_label.pack(side=tk.LEFT, padx=(0, 18))
+        self.web_port = self._labeled_entry(row, "Web 端口", "6080", 7)
+        self.vnc_port = self._labeled_entry(row, "VNC 端口", "5900", 7)
+        self.token = self._labeled_entry(row, "访问令牌", "", 14, show="*")
+        self.btn_start = ttk.Button(row, text="启动", command=self.start_server)
+        self.btn_start.pack(side=tk.LEFT, padx=(10, 4))
+        self.btn_stop = ttk.Button(row, text="停止", command=self.stop_server, state=tk.DISABLED)
         self.btn_stop.pack(side=tk.LEFT)
-        ttk.Label(row2, text="（首次启动会自动联网安装 Pillow）",
-                  foreground="#888").pack(side=tk.LEFT, padx=8)
 
-        logbox = ttk.Labelframe(frame, text="服务端日志")
-        logbox.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        address = ttk.Labelframe(parent, text="访问地址")
+        address.pack(fill=tk.X, pady=(0, 8))
+        self.ip_list = ttk.Frame(address, padding=6)
+        self.ip_list.pack(fill=tk.X)
+
+        logs = ttk.Labelframe(parent, text="服务日志")
+        logs.pack(fill=tk.BOTH, expand=True)
         self.log_text = scrolledtext.ScrolledText(
-            logbox, height=14, state=tk.DISABLED, font=("Consolas", 10),
-            wrap=tk.WORD)
-        self.log_text.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
-        return frame
+            logs, state=tk.DISABLED, font=("Consolas", 10), wrap=tk.WORD)
+        self.log_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
-    def _build_right(self, parent):
-        frame = ttk.Frame(parent)
+    def _build_environment(self, parent):
+        python_box = ttk.Labelframe(parent, text="Python 解释器")
+        python_box.pack(fill=tk.X, pady=(0, 8))
+        row = ttk.Frame(python_box, padding=8)
+        row.pack(fill=tk.X)
+        self.python_combo = ttk.Combobox(row, textvariable=self.python_var)
+        self.python_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(row, text="选择...", command=self.select_python).pack(side=tk.LEFT, padx=5)
+        ttk.Button(row, text="检测", command=self.check_python).pack(side=tk.LEFT)
+        self.python_info = ttk.Label(python_box, text="等待检测", foreground="#666")
+        self.python_info.pack(anchor=tk.W, padx=8, pady=(0, 8))
 
-        # ---- 本机访问地址 ----
-        ipbox = ttk.Labelframe(frame, text="本机访问地址")
-        ipbox.pack(fill=tk.X, padx=4, pady=4)
-        head = ttk.Frame(ipbox)
-        head.pack(fill=tk.X, padx=6, pady=(4, 0))
-        ttk.Button(head, text="刷新", width=6,
-                   command=self.refresh_ips).pack(side=tk.RIGHT)
-        ttk.Label(head, text="点击 IP 后的图标在浏览器打开").pack(side=tk.LEFT)
-        self.ip_list = ttk.Frame(ipbox)
-        self.ip_list.pack(fill=tk.X, padx=6, pady=(2, 6))
-
-        # ---- 模块管理 ----
-        modbox = ttk.Labelframe(frame, text="模块管理（内置 Python 3.14）")
-        modbox.pack(fill=tk.X, padx=4, pady=4)
-        row1 = ttk.Frame(modbox)
-        row1.pack(fill=tk.X, padx=6, pady=4)
-        ttk.Label(row1, text="模块名:").pack(side=tk.LEFT)
-        self.module_name = ttk.Entry(row1)
-        self.module_name.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4)
+        packages = ttk.Labelframe(parent, text="Python 包")
+        packages.pack(fill=tk.X, pady=(0, 8))
+        package_row = ttk.Frame(packages, padding=8)
+        package_row.pack(fill=tk.X)
+        ttk.Label(package_row, text="包名").pack(side=tk.LEFT)
+        self.module_name = ttk.Entry(package_row)
         self.module_name.insert(0, "pillow")
-        row2 = ttk.Frame(modbox)
-        row2.pack(fill=tk.X, padx=6, pady=(0, 6))
-        ttk.Button(row2, text="安装", command=lambda: self.pip_op("install")).pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(row2, text="更新", command=lambda: self.pip_op("upgrade")).pack(side=tk.LEFT, padx=4)
-        ttk.Button(row2, text="卸载", command=lambda: self.pip_op("uninstall")).pack(side=tk.LEFT, padx=4)
-        ttk.Button(row2, text="已安装列表", command=lambda: self.pip_op("list")).pack(side=tk.LEFT, padx=4)
-        ttk.Button(row2, text="从文件导入...",
-                   command=self.pip_install_file).pack(side=tk.LEFT, padx=4)
+        self.module_name.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
+        ttk.Button(package_row, text="获取 pip", command=self.ensure_pip).pack(side=tk.LEFT, padx=3)
+        ttk.Button(package_row, text="下载", command=lambda: self.pip_op("download")).pack(side=tk.LEFT, padx=3)
+        ttk.Button(package_row, text="安装", command=lambda: self.pip_op("install")).pack(side=tk.LEFT, padx=3)
+        ttk.Button(package_row, text="更新", command=lambda: self.pip_op("upgrade")).pack(side=tk.LEFT, padx=3)
+        ttk.Button(package_row, text="已安装包", command=lambda: self.pip_op("list")).pack(side=tk.LEFT, padx=3)
+        ttk.Button(package_row, text="本地包...", command=self.pip_install_file).pack(side=tk.LEFT, padx=3)
+        self.env_output = scrolledtext.ScrolledText(
+            parent, state=tk.DISABLED, font=("Consolas", 10), wrap=tk.WORD)
+        self.env_output.pack(fill=tk.BOTH, expand=True)
 
-        # ---- 内置 CMD ----
-        cmdbbox = ttk.Labelframe(frame, text="内置 CMD")
-        cmdbbox.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+    def _build_terminal(self, parent):
         self.cmd_text = scrolledtext.ScrolledText(
-            cmdbbox, height=9, state=tk.DISABLED, font=("Consolas", 10),
-            wrap=tk.WORD)
-        self.cmd_text.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
-        row = ttk.Frame(cmdbbox)
-        row.pack(fill=tk.X, padx=6, pady=(0, 6))
+            parent, state=tk.DISABLED, font=("Consolas", 10), wrap=tk.WORD)
+        self.cmd_text.pack(fill=tk.BOTH, expand=True)
+        row = ttk.Frame(parent, padding=(0, 8, 0, 0))
+        row.pack(fill=tk.X)
         ttk.Label(row, text=">").pack(side=tk.LEFT)
         self.cmd_input = ttk.Entry(row)
-        self.cmd_input.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4)
-        self.cmd_input.bind("<Return>", lambda e: self.run_cmd())
+        self.cmd_input.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
+        self.cmd_input.bind("<Return>", lambda _event: self.run_cmd())
         ttk.Button(row, text="执行", command=self.run_cmd).pack(side=tk.LEFT)
-        return frame
+
+    def _build_config(self, parent):
+        toolbar = ttk.Frame(parent)
+        toolbar.pack(fill=tk.X, pady=(0, 8))
+        ttk.Label(toolbar, text="设置文件").pack(side=tk.LEFT)
+        self.config_file_var = tk.StringVar()
+        self.config_file_combo = ttk.Combobox(toolbar, textvariable=self.config_file_var, state="readonly")
+        self.config_file_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
+        self.config_file_combo.bind("<<ComboboxSelected>>", lambda _event: self.load_config_file())
+        ttk.Button(toolbar, text="重新加载", command=self.load_config_file).pack(side=tk.LEFT, padx=3)
+        ttk.Button(toolbar, text="保存", command=self.save_config_file).pack(side=tk.LEFT, padx=3)
+
+        panes = ttk.Panedwindow(parent, orient=tk.VERTICAL)
+        panes.pack(fill=tk.BOTH, expand=True)
+        scalar_box = ttk.Labelframe(panes, text="键值对")
+        list_box = ttk.Labelframe(panes, text="列表")
+        panes.add(scalar_box, weight=3)
+        panes.add(list_box, weight=2)
+        self.scalar_tree = self._config_tree(scalar_box)
+        self.list_tree = self._config_tree(list_box)
+        self.scalar_tree.bind("<<TreeviewSelect>>", lambda _event: self.fill_config_editor(self.scalar_tree))
+        self.list_tree.bind("<<TreeviewSelect>>", lambda _event: self.fill_config_editor(self.list_tree))
+
+        editor = ttk.Frame(parent, padding=(0, 8, 0, 0))
+        editor.pack(fill=tk.X)
+        ttk.Label(editor, text="键路径").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(editor, text="JSON 值").grid(row=0, column=1, sticky=tk.W)
+        self.config_key = ttk.Entry(editor)
+        self.config_value = ttk.Entry(editor)
+        self.config_key.grid(row=1, column=0, sticky=tk.EW, padx=(0, 6))
+        self.config_value.grid(row=1, column=1, sticky=tk.EW, padx=(0, 6))
+        ttk.Button(editor, text="添加/更新", command=self.update_config_value).grid(row=1, column=2, padx=3)
+        ttk.Button(editor, text="移除", command=self.remove_config_value).grid(row=1, column=3, padx=3)
+        editor.columnconfigure(0, weight=2)
+        editor.columnconfigure(1, weight=3)
+        self.config_status = ttk.Label(parent, text="使用点号表示嵌套键；字符串值需写成 JSON 字符串")
+        self.config_status.pack(anchor=tk.W, pady=(6, 0))
+
+    @staticmethod
+    def _labeled_entry(parent, label, value, width, show=None):
+        ttk.Label(parent, text=label).pack(side=tk.LEFT, padx=(0, 4))
+        entry = ttk.Entry(parent, width=width, show=show)
+        entry.insert(0, value)
+        entry.pack(side=tk.LEFT, padx=(0, 10))
+        return entry
+
+    @staticmethod
+    def _config_tree(parent):
+        tree = ttk.Treeview(parent, columns=("key", "value"), show="headings", height=6)
+        tree.heading("key", text="键路径")
+        tree.heading("value", text="值")
+        tree.column("key", width=260, anchor=tk.W)
+        tree.column("value", width=620, anchor=tk.W)
+        tree.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+        return tree
+
+    def selected_python(self):
+        return self.python_var.get().strip() or sys.executable
+
+    def select_python(self):
+        path = filedialog.askopenfilename(
+            title="选择 Python 解释器",
+            filetypes=[("Python", "python.exe python3 python"), ("所有文件", "*.*")])
+        if path:
+            self.python_var.set(path)
+            self.check_python()
+
+    def check_python(self):
+        exe = self.selected_python()
+        try:
+            result = subprocess.run(
+                [exe, "--version"], cwd=BASE, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=5,
+                creationflags=NO_WINDOW)
+            text = (result.stdout or result.stderr).strip()
+            self.python_info.configure(text=f"{text}  |  {exe}", foreground="#16733b")
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            self.python_info.configure(text=f"检测失败: {exc}", foreground="#b3261e")
+
+    def ensure_pip(self):
+        exe = self.selected_python()
+        get_pip = os.path.join(BASE, "get-pip.py")
+        if os.path.isfile(get_pip):
+            self._run_in_cmd([exe, get_pip], target="env")
+        else:
+            self._run_in_cmd([exe, "-m", "ensurepip", "--upgrade"], target="env")
+
+    def refresh_config_files(self):
+        candidates = ["config.json", os.path.join("web", "defaults.json"),
+                      os.path.join("web", "mandatory.json")]
+        files = [name for name in candidates if os.path.isfile(os.path.join(BASE, name))]
+        self.config_file_combo["values"] = files
+        if self.config_file_var.get() not in files and files:
+            self.config_file_var.set(files[0])
+            self.load_config_file()
+
+    def load_config_file(self):
+        name = self.config_file_var.get()
+        if not name:
+            return
+        path = os.path.abspath(os.path.join(BASE, name))
+        try:
+            inside_project = os.path.commonpath((BASE, path)) == BASE
+        except ValueError:
+            inside_project = False
+        if not inside_project:
+            messagebox.showerror("配置", "设置文件路径无效")
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            if not isinstance(data, dict):
+                raise ValueError("设置文件根节点必须是对象")
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            messagebox.showerror("配置", str(exc))
+            return
+        self.config_path = path
+        self.config_data = data
+        self.refresh_config_trees()
+        self.config_status.configure(text=f"已加载 {name}")
+
+    def refresh_config_trees(self):
+        for tree in (self.scalar_tree, self.list_tree):
+            tree.delete(*tree.get_children())
+        for key, value in self._flatten_config(self.config_data):
+            text = json.dumps(value, ensure_ascii=False)
+            target = self.list_tree if isinstance(value, list) else self.scalar_tree
+            target.insert("", tk.END, values=(key, text))
+
+    def _flatten_config(self, data, prefix=""):
+        rows = []
+        for key, value in data.items():
+            path = f"{prefix}.{key}" if prefix else key
+            if isinstance(value, dict):
+                rows.extend(self._flatten_config(value, path))
+            else:
+                rows.append((path, value))
+        return rows
+
+    def fill_config_editor(self, tree):
+        selected = tree.selection()
+        if not selected:
+            return
+        key, value = tree.item(selected[0], "values")
+        self.config_key.delete(0, tk.END)
+        self.config_key.insert(0, key)
+        self.config_value.delete(0, tk.END)
+        self.config_value.insert(0, value)
+
+    def update_config_value(self):
+        key = self.config_key.get().strip()
+        if not key or any(not part for part in key.split(".")):
+            messagebox.showerror("配置", "请输入有效的键路径")
+            return
+        try:
+            value = json.loads(self.config_value.get())
+        except json.JSONDecodeError as exc:
+            messagebox.showerror("配置", f"JSON 值无效: {exc}")
+            return
+        target = self.config_data
+        parts = key.split(".")
+        for part in parts[:-1]:
+            child = target.setdefault(part, {})
+            if not isinstance(child, dict):
+                messagebox.showerror("配置", f"{part} 已经是普通值")
+                return
+            target = child
+        target[parts[-1]] = value
+        self.refresh_config_trees()
+        self.config_status.configure(text="内存中的配置已更新，点击保存写入文件")
+
+    def remove_config_value(self):
+        parts = self.config_key.get().strip().split(".")
+        target = self.config_data
+        for part in parts[:-1]:
+            target = target.get(part, {})
+            if not isinstance(target, dict):
+                return
+        target.pop(parts[-1], None)
+        self.refresh_config_trees()
+
+    def save_config_file(self):
+        if not self.config_path:
+            return
+        try:
+            with open(self.config_path, "w", encoding="utf-8") as handle:
+                json.dump(self.config_data, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+        except OSError as exc:
+            messagebox.showerror("配置", str(exc))
+            return
+        self.config_status.configure(text=f"已保存 {os.path.relpath(self.config_path, BASE)}")
 
     # ---------------- 服务控制 ----------------
     def _append_log(self, line):
@@ -193,8 +393,14 @@ class App:
             return
         web = self.web_port.get().strip() or "6080"
         vnc = self.vnc_port.get().strip() or "5900"
+        try:
+            if not (1 <= int(web) <= 65535 and 1 <= int(vnc) <= 65535):
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("端口", "Web 和 VNC 端口必须是 1 至 65535 的整数")
+            return
         token = self.token.get().strip()
-        cmd = [embedded_python(), "-u", "webvnc.py",
+        cmd = [self.selected_python(), "-u", "webvnc.py",
                "--port", web, "--vnc-port", vnc]
         if token:
             cmd += ["--token", token]
@@ -277,6 +483,12 @@ class App:
         self.cmd_text.see(tk.END)
         self.cmd_text.configure(state=tk.DISABLED)
 
+    def _append_env(self, line):
+        self.env_output.configure(state=tk.NORMAL)
+        self.env_output.insert(tk.END, line + "\n")
+        self.env_output.see(tk.END)
+        self.env_output.configure(state=tk.DISABLED)
+
     def pip_op(self, op):
         args = None
         if op == "list":
@@ -284,15 +496,19 @@ class App:
         else:
             name = self.module_name.get().strip()
             if not name:
-                self._append_cmd("[提示] 请先输入模块名")
+                self._append_env("[提示] 请先输入包名")
                 return
-            if op == "install":
+            if op == "download":
+                destination = os.path.join(BASE, "packages")
+                os.makedirs(destination, exist_ok=True)
+                args = ["-m", "pip", "download", name, "--dest", destination]
+            elif op == "install":
                 args = ["-m", "pip", "install", name]
             elif op == "upgrade":
                 args = ["-m", "pip", "install", "--upgrade", name]
             elif op == "uninstall":
                 args = ["-m", "pip", "uninstall", "-y", name]
-        self._run_in_cmd([embedded_python()] + args)
+        self._run_in_cmd([self.selected_python()] + args, target="env")
 
     def pip_install_file(self):
         path = filedialog.askopenfilename(
@@ -301,7 +517,7 @@ class App:
                        ("所有文件", "*.*")])
         if not path:
             return
-        self._run_in_cmd([embedded_python(), "-m", "pip", "install", path])
+        self._run_in_cmd([self.selected_python(), "-m", "pip", "install", path], target="env")
 
     # ---------------- 内置 CMD ----------------
     def run_cmd(self):
@@ -315,28 +531,29 @@ class App:
             cmd = ["/bin/sh", "-c", command]
         self._run_in_cmd(cmd)
 
-    def _run_in_cmd(self, cmd):
-        self._append_cmd("$ " + subprocess.list2cmdline(cmd)
-                         if IS_WINDOWS else " ".join(cmd))
+    def _run_in_cmd(self, cmd, target="cmd"):
+        append = self._append_env if target == "env" else self._append_cmd
+        append("$ " + (subprocess.list2cmdline(cmd) if IS_WINDOWS else " ".join(cmd)))
         try:
             proc = subprocess.Popen(
                 cmd, cwd=BASE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL, text=True, encoding="utf-8",
                 errors="replace", creationflags=NO_WINDOW)
         except OSError as exc:
-            self._append_cmd(f"[启动失败] {exc}")
+            append(f"[启动失败] {exc}")
             return
 
-        def reader(pid=proc):
+        def reader(pid=proc, output_target=target):
             for line in proc.stdout:
-                self.cmdq.put(line.rstrip("\r\n"))
-            self.cmdq.put(f"[退出码 {proc.wait()}]")
+                self.cmdq.put((output_target, line.rstrip("\r\n")))
+            self.cmdq.put((output_target, f"[退出码 {proc.wait()}]"))
         threading.Thread(target=reader, daemon=True).start()
 
     def _poll_cmd(self):
         try:
             while True:
-                self._append_cmd(self.cmdq.get_nowait())
+                target, line = self.cmdq.get_nowait()
+                (self._append_env if target == "env" else self._append_cmd)(line)
         except queue.Empty:
             pass
         self.root.after(150, self._poll_cmd)
