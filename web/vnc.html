@@ -336,22 +336,37 @@
                         <div class="zoom_hd"
                              style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #626a76;color:#ffffff"
                              data-th="color:fg;border-color:border">缩放调整</div>
-                        <div class="zoom_row" style="margin-bottom:8px">屏幕缩放模式</div>
-                        <div class="zoom_btns"
-                             style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
-                            <button class="zoom_btn" data-mode="off" title="原始尺寸，不缩放"
-                                    style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
-                                    data-th="background:panel;color:fg;border-color:input">原始尺寸</button>
-                            <button class="zoom_btn" data-mode="scale" title="画面缩放适配屏幕区"
-                                    style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
-                                    data-th="background:panel;color:fg;border-color:input">适应窗口</button>
-                            <button class="zoom_btn" data-mode="remote" title="调整远程分辨率适配窗口"
-                                    style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
-                                    data-th="background:panel;color:fg;border-color:input">调整远程分辨率</button>
-                        </div>
-                        <div class="zoom_hint"
-                             style="color:#b6bac2;font-size:12px;line-height:1.6"
-                             data-th="color:muted">适配：画面自动缩放至窗口大小<br>远程：调整远程桌面分辨率适配窗口</div>
+                         <div class="zoom_row" style="margin-bottom:8px">目标显示设置</div>
+                         <div style="display:flex;gap:6px;margin-bottom:8px">
+                             <label style="flex:1;min-width:0;color:#b6bac2;font-size:12px"
+                                    data-th="color:muted">物理分辨率
+                                 <select id="display_resolution_select"
+                                         style="display:block;width:100%;box-sizing:border-box;margin-top:3px;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;font-family:inherit"
+                                         data-th="background:panel;color:fg;border-color:input">
+                                     <option value="">读取中...</option>
+                                 </select>
+                             </label>
+                             <label style="flex:1;min-width:0;color:#b6bac2;font-size:12px"
+                                    data-th="color:muted">系统缩放
+                                 <select id="display_scale_select"
+                                         style="display:block;width:100%;box-sizing:border-box;margin-top:3px;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;font-family:inherit"
+                                         data-th="background:panel;color:fg;border-color:input">
+                                     <option value="">读取中...</option>
+                                 </select>
+                             </label>
+                         </div>
+                         <div class="zoom_btns"
+                              style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+                             <button class="zoom_btn" data-mode="off" title="原始尺寸，不缩放"
+                                     style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
+                                     data-th="background:panel;color:fg;border-color:input">原始尺寸</button>
+                             <button class="zoom_btn" data-mode="scale" title="画面缩放适配屏幕区"
+                                     style="width:100%;box-sizing:border-box;background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:inherit;text-align:center"
+                                     data-th="background:panel;color:fg;border-color:input">适应窗口</button>
+                         </div>
+                         <div class="zoom_hint"
+                              style="color:#b6bac2;font-size:12px;line-height:1.6"
+                              data-th="color:muted">分辨率和系统缩放选择后立即应用；系统缩放可能需要注销或重启桌面会话</div>
                     </div>
                 </div>
 

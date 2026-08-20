@@ -75,6 +75,8 @@
     function setupZoom() {
         const sel = $("noVNC_setting_resize");
         const btns = document.querySelectorAll(".zoom_btn");
+        const resolution = $("display_resolution_select");
+        const scale = $("display_scale_select");
 
         function sync() {
             const t = theme.palette();
@@ -102,6 +104,94 @@
         });
         sel.addEventListener("change", sync);
         sync();
+
+        function setOptions(select, options, value, label) {
+            if (!select) return;
+            select.textContent = "";
+            if (!options.length) {
+                const option = document.createElement("option");
+                option.value = "";
+                option.textContent = label;
+                select.appendChild(option);
+                select.disabled = true;
+                return;
+            }
+            select.disabled = false;
+            options.forEach((item) => {
+                const option = document.createElement("option");
+                option.value = item.value;
+                option.textContent = item.label;
+                select.appendChild(option);
+            });
+            if (value !== undefined && [...select.options].some((item) => item.value === String(value))) {
+                select.value = String(value);
+            }
+        }
+
+        function loadDisplay() {
+            if (!resolution || !scale) return;
+            fetch("/api/display")
+                .then((r) => (r.ok ? r.json() : null))
+                .then((data) => {
+                    if (!data) return;
+                    const modes = (data.modes || []).map((item) => ({
+                        value: item.width + "x" + item.height,
+                        label: item.width + " x " + item.height,
+                    }));
+                    const current = data.current || {};
+                    setOptions(resolution, modes,
+                        current.width && current.height ? current.width + "x" + current.height : "",
+                        "不可用");
+                    setOptions(scale, (data.scales || []).map((item) => ({
+                        value: String(item), label: item + "%",
+                    })), data.scale, "不可用");
+                    if (!data.supported) {
+                        resolution.title = data.error || "当前平台不支持物理显示设置";
+                        scale.title = data.error || "当前平台不支持系统缩放设置";
+                    }
+                })
+                .catch(() => {
+                    setOptions(resolution, [], undefined, "读取失败");
+                    setOptions(scale, [], undefined, "读取失败");
+                });
+        }
+
+        async function applyDisplay() {
+            if (!resolution || !scale || resolution.disabled || scale.disabled) return;
+            const match = /^(\d+)x(\d+)$/.exec(resolution.value);
+            if (!match) return;
+            resolution.disabled = true;
+            scale.disabled = true;
+            try {
+                const response = await fetch("/api/display", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        width: Number(match[1]),
+                        height: Number(match[2]),
+                        scale: Number(scale.value),
+                    }),
+                });
+                const result = await response.json();
+                if (!result.ok) {
+                    resolution.title = result.error || "应用显示设置失败";
+                    scale.title = resolution.title;
+                }
+            } catch (err) {
+                resolution.title = "应用显示设置失败";
+                scale.title = resolution.title;
+            } finally {
+                resolution.disabled = false;
+                scale.disabled = false;
+                loadDisplay();
+            }
+        }
+
+        if (resolution && scale) {
+            resolution.addEventListener("change", applyDisplay);
+            scale.addEventListener("change", applyDisplay);
+            loadDisplay();
+        }
     }
 
     /* ====================================================================

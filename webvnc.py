@@ -432,6 +432,155 @@ def get_system_stats():
     return stats
 
 
+def _display_info():
+    """读取目标主机当前显示分辨率、可用模式与系统缩放比例。"""
+    if IS_WINDOWS:
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class DEVMODEW(ctypes.Structure):
+                _fields_ = [
+                    ("dmDeviceName", wintypes.WCHAR * 32),
+                    ("dmSpecVersion", wintypes.WORD),
+                    ("dmDriverVersion", wintypes.WORD),
+                    ("dmSize", wintypes.WORD),
+                    ("dmDriverExtra", wintypes.WORD),
+                    ("dmFields", wintypes.DWORD),
+                    ("dmPositionX", wintypes.LONG),
+                    ("dmPositionY", wintypes.LONG),
+                    ("dmDisplayOrientation", wintypes.DWORD),
+                    ("dmDisplayFixedOutput", wintypes.DWORD),
+                    ("dmColor", wintypes.SHORT),
+                    ("dmDuplex", wintypes.SHORT),
+                    ("dmYResolution", wintypes.SHORT),
+                    ("dmTTOption", wintypes.SHORT),
+                    ("dmCollate", wintypes.SHORT),
+                    ("dmFormName", wintypes.WCHAR * 32),
+                    ("dmLogPixels", wintypes.WORD),
+                    ("dmBitsPerPel", wintypes.DWORD),
+                    ("dmPelsWidth", wintypes.DWORD),
+                    ("dmPelsHeight", wintypes.DWORD),
+                    ("dmDisplayFlags", wintypes.DWORD),
+                    ("dmDisplayFrequency", wintypes.DWORD),
+                    ("dmICMMethod", wintypes.DWORD),
+                    ("dmICMIntent", wintypes.DWORD),
+                    ("dmMediaType", wintypes.DWORD),
+                    ("dmDitherType", wintypes.DWORD),
+                    ("dmReserved1", wintypes.DWORD),
+                    ("dmReserved2", wintypes.DWORD),
+                    ("dmPanningWidth", wintypes.DWORD),
+                    ("dmPanningHeight", wintypes.DWORD),
+                ]
+
+            user32 = ctypes.windll.user32
+            current = DEVMODEW()
+            current.dmSize = ctypes.sizeof(DEVMODEW)
+            if not user32.EnumDisplaySettingsW(None, -1, ctypes.byref(current)):
+                raise OSError("无法读取当前显示模式")
+            modes = []
+            seen = set()
+            index = 0
+            while True:
+                mode = DEVMODEW()
+                mode.dmSize = ctypes.sizeof(DEVMODEW)
+                if not user32.EnumDisplaySettingsW(None, index, ctypes.byref(mode)):
+                    break
+                width, height = int(mode.dmPelsWidth), int(mode.dmPelsHeight)
+                key = (width, height)
+                if width >= 640 and height >= 480 and key not in seen:
+                    seen.add(key)
+                    modes.append({"width": width, "height": height})
+                index += 1
+            modes.sort(key=lambda item: (item["width"] * item["height"], item["width"]))
+
+            scale = 100
+            try:
+                dpi = user32.GetDpiForSystem()
+                if dpi:
+                    scale = round(int(dpi) / 96 * 100)
+            except Exception:
+                pass
+            return {
+                "supported": True,
+                "platform": "windows",
+                "current": {"width": int(current.dmPelsWidth), "height": int(current.dmPelsHeight)},
+                "modes": modes,
+                "scale": scale,
+                "scales": [100, 125, 150, 175, 200],
+            }
+        except Exception as exc:
+            return {"supported": False, "error": str(exc), "platform": "windows"}
+
+    width, height = 1024, 768
+    return {
+        "supported": False,
+        "platform": sys.platform,
+        "current": {"width": width, "height": height},
+        "modes": [{"width": width, "height": height}],
+        "scale": 100,
+        "scales": [100],
+        "error": "当前平台未提供物理显示配置接口",
+    }
+
+
+def _apply_display_info(data):
+    """应用目标主机显示分辨率与 Windows 用户缩放设置。"""
+    if not IS_WINDOWS:
+        return {"ok": False, "error": "当前平台未提供物理显示配置接口"}
+    try:
+        width = int(data.get("width"))
+        height = int(data.get("height"))
+        scale = int(data.get("scale"))
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "分辨率或缩放参数无效"}
+    if width < 640 or height < 480 or scale not in (100, 125, 150, 175, 200):
+        return {"ok": False, "error": "分辨率或缩放参数超出范围"}
+    try:
+        import ctypes
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+
+        class DEVMODEW(ctypes.Structure):
+            _fields_ = [
+                ("dmDeviceName", wintypes.WCHAR * 32), ("dmSpecVersion", wintypes.WORD),
+                ("dmDriverVersion", wintypes.WORD), ("dmSize", wintypes.WORD),
+                ("dmDriverExtra", wintypes.WORD), ("dmFields", wintypes.DWORD),
+                ("dmPositionX", wintypes.LONG), ("dmPositionY", wintypes.LONG),
+                ("dmDisplayOrientation", wintypes.DWORD), ("dmDisplayFixedOutput", wintypes.DWORD),
+                ("dmColor", wintypes.SHORT), ("dmDuplex", wintypes.SHORT),
+                ("dmYResolution", wintypes.SHORT), ("dmTTOption", wintypes.SHORT),
+                ("dmCollate", wintypes.SHORT), ("dmFormName", wintypes.WCHAR * 32),
+                ("dmLogPixels", wintypes.WORD), ("dmBitsPerPel", wintypes.DWORD),
+                ("dmPelsWidth", wintypes.DWORD), ("dmPelsHeight", wintypes.DWORD),
+                ("dmDisplayFlags", wintypes.DWORD), ("dmDisplayFrequency", wintypes.DWORD),
+                ("dmICMMethod", wintypes.DWORD), ("dmICMIntent", wintypes.DWORD),
+                ("dmMediaType", wintypes.DWORD), ("dmDitherType", wintypes.DWORD),
+                ("dmReserved1", wintypes.DWORD), ("dmReserved2", wintypes.DWORD),
+                ("dmPanningWidth", wintypes.DWORD), ("dmPanningHeight", wintypes.DWORD),
+            ]
+
+        mode = DEVMODEW()
+        mode.dmSize = ctypes.sizeof(DEVMODEW)
+        if not user32.EnumDisplaySettingsW(None, -1, ctypes.byref(mode)):
+            raise OSError("无法读取当前显示模式")
+        mode.dmPelsWidth = width
+        mode.dmPelsHeight = height
+        mode.dmFields = 0x80000 | 0x100000
+        result = user32.ChangeDisplaySettingsW(ctypes.byref(mode), 0)
+        if result != 0:
+            return {"ok": False, "error": f"系统拒绝分辨率设置（代码 {result}）"}
+
+        import winreg
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Control Panel\Desktop") as key:
+            winreg.SetValueEx(key, "LogPixels", 0, winreg.REG_DWORD, round(96 * scale / 100))
+            winreg.SetValueEx(key, "Win8DpiScaling", 0, winreg.REG_DWORD, 1)
+        user32.SendMessageTimeoutW(0xFFFF, 0x001A, 0, "ImmersiveColorSet", 2, 1000, None)
+        return {"ok": True, "scale": scale, "requires_logoff": True}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 def restart_service():
     """重启 webvnc 服务进程（携带原启动参数，绝对路径，Windows 兼容）"""
     args = ["python" if IS_WINDOWS else "python3", os.path.abspath(__file__)]
@@ -1659,6 +1808,8 @@ class WebHandler(BaseHTTPRequestHandler):
             return self._send_json({"pong": True})
         if path == "/api/system":
             return self._send_json(get_system_stats())
+        if path == "/api/display":
+            return self._send_json(_display_info())
         if path == "/api/clipboard":
             srv = WebHandler.vnc_server
             text = ""
@@ -1718,6 +1869,12 @@ class WebHandler(BaseHTTPRequestHandler):
                 return self._send_json({"theme": theme, "saved": True})
             except (ValueError, OSError) as exc:
                 return self._send_json({"error": str(exc)}, 500)
+        if path == "/api/display":
+            try:
+                body = self._read_body() or b"{}"
+                return self._send_json(_apply_display_info(json.loads(body)))
+            except (ValueError, OSError) as exc:
+                return self._send_json({"ok": False, "error": str(exc)}, 400)
         if path == "/api/encoder":
             try:
                 body = self._read_body() or b"{}"
