@@ -77,15 +77,22 @@
         let visible = false;
 
         const ROWS = [
-            ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"],
-            ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Back"],
+            ["Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "PrtSc", "ScrLk", "Pause"],
+            ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Back"],
             ["Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"],
             ["Caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter"],
             ["Shift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift"],
-            ["Ctrl", "Alt", " ", "Alt", "Ctrl"],
+            ["Ctrl", "Win", "Alt", " ", "Alt", "Win", "Menu", "Ctrl"],
+        ];
+        /* osk.exe 右侧导航区：编辑键 + 方向键 */
+        const NAVKEYS = [
+            ["Ins", "Home", "PgUp"],
+            ["Del", "End", "PgDn"],
+            ["", "Up", ""],
+            ["Left", "Down", "Right"],
         ];
         const NUMPAD = [
-            ["KPDiv", "KPMul", "KPSub"],
+            ["NumLock", "KPDiv", "KPMul", "KPSub"],
             ["KP7", "KP8", "KP9", "KPAdd"],
             ["KP4", "KP5", "KP6", "KPAdd"],
             ["KP1", "KP2", "KP3", "KPEnter"],
@@ -93,17 +100,22 @@
         ];
 
         function keyToKeysym(key) {
-            // 转 noVNC keysym（部分），简单键直接发送
+            // 转 noVNC keysym，复刻 osk.exe 全部按键
             const map = {
                 "Back": 0xFF08, "Tab": 0xFF09, "Enter": 0xFF0D,
                 "Esc": 0xFF1B, "Caps": 0xFFE5, "Shift": 0xFFE1,
                 "Ctrl": 0xFFE3, "Alt": 0xFFE9, " ": 0x0020,
                 "\\": 0x005C, "'": 0x0027, ";": 0x003B, ",": 0x002C,
                 ".": 0x002E, "/": 0x002F, "-": 0x002D, "=": 0x003D,
-                "[": 0x005B, "]": 0x005D,
+                "[": 0x005B, "]": 0x005D, "`": 0x0060, "~": 0x007E,
                 "NumLock": 0xFF7F, "KPDiv": 0xFFAF, "KPMul": 0xFFAA,
                 "KPSub": 0xFFAD, "KPAdd": 0xFFAB, "KPDec": 0xFFAE,
                 "KPEnter": 0xFF8D,
+                "Win": 0xFFEB, "Menu": 0xFF67, "PrtSc": 0xFF61,
+                "ScrLk": 0xFF14, "Pause": 0xFF13, "SysRq": 0xFF15,
+                "Up": 0xFF52, "Down": 0xFF54, "Left": 0xFF51, "Right": 0xFF53,
+                "Ins": 0xFF63, "Home": 0xFF50, "PgUp": 0xFF55,
+                "Del": 0xFFFF, "End": 0xFF57, "PgDn": 0xFF56,
             };
             if (map[key] !== undefined) return map[key];
             // 小键盘数字：KP_0..KP_9 = 0xFFB0..0xFFB9
@@ -380,12 +392,14 @@
 
             /* 主键盘（左侧，flex 撑满） */
             const main = document.createElement("div");
-            main.style.cssText = "display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:220px;min-height:0";
+            main.style.cssText = "display:flex;flex-direction:row;gap:8px;flex:1 1 auto;min-width:220px;min-height:0";
+            const mainAlpha = document.createElement("div");
+            mainAlpha.style.cssText = "display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:0";
             for (const row of ROWS) {
                 const r = document.createElement("div");
                 r.style.cssText = "display:flex;gap:2px;flex:1";
                 for (const k of row) {
-                    const wide = ["Back", "Tab", "Caps", "Enter", "Shift", "Ctrl", "Alt", " "].includes(k);
+                    const wide = ["Back", "Tab", "Caps", "Enter", "Shift", "Ctrl", "Alt", "Win", "Menu", " "].includes(k);
                     const flex = k === " " ? "6" : wide ? "1.6" : "1";
                     const b = makeKey(k, k, flex, t);
                     /* 字母键标记：用于 Shift 切换大小写显示 */
@@ -395,8 +409,23 @@
                     }
                     r.appendChild(b);
                 }
-                main.appendChild(r);
+                mainAlpha.appendChild(r);
             }
+            /* 导航区：编辑键 + 方向键 */
+            const nav = document.createElement("div");
+            nav.style.cssText = "display:flex;flex-direction:column;gap:2px;flex:0 0 96px;border-left:1px solid " +
+                t.border + ";padding-left:8px";
+            for (const row of NAVKEYS) {
+                const r = document.createElement("div");
+                r.style.cssText = "display:flex;gap:2px;flex:1";
+                for (const k of row) {
+                    if (!k) { r.appendChild(document.createElement("div")).style.flex = "1"; continue; }
+                    r.appendChild(makeKey(k, k, "1", t));
+                }
+                nav.appendChild(r);
+            }
+            main.appendChild(mainAlpha);
+            main.appendChild(nav);
 
             /* 小键盘（右侧，固定宽度） */
             const npad = document.createElement("div");
