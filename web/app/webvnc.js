@@ -1050,75 +1050,6 @@
     /* ====================================================================
      * 服务端日志标题栏：VNC 连接状态 + 连接/断开按钮（互转）
      * ================================================================== */
-    /* ====================================================================
-     * 三象限：端口面板（扫描展示本机所有开放端口）
-     * ================================================================== */
-    const portPanel = (function () {
-        const listEl = $("port_list");
-        let timer = null;
-        let ports = [];
-
-        function render() {
-            const t = theme.palette();
-            if (!listEl) return;
-            listEl.innerHTML = "";
-            if (!ports.length) {
-                const d = document.createElement("div");
-                d.textContent = "(无监听端口)";
-                d.style.color = t.muted;
-                listEl.appendChild(d);
-                return;
-            }
-            const frag = document.createDocumentFragment();
-            for (const p of ports) {
-                const row = document.createElement("div");
-                row.style.cssText = "display:flex;gap:6px;padding:1px 0;max-width:100%;box-sizing:border-box;" +
-                    "color:" + t.fg + ";font-size:11px";
-                const b = document.createElement("b");
-                b.textContent = String(p.port);
-                b.style.cssText = "min-width:44px;font-weight:600;color:" + t.fg;
-                const proto = document.createElement("span");
-                proto.textContent = p.proto;
-                proto.style.cssText = "min-width:34px;color:" + t.muted;
-                const addr = document.createElement("span");
-                addr.textContent = p.addr;
-                addr.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:" + t.muted;
-                row.appendChild(b);
-                row.appendChild(proto);
-                row.appendChild(addr);
-                frag.appendChild(row);
-            }
-            listEl.appendChild(frag);
-        }
-
-        async function load() {
-            try {
-                const resp = await fetch("/api/netstat");
-                if (!resp.ok) return;
-                const data = await resp.json();
-                ports = data.ports || [];
-            } catch (err) { /* 忽略 */ }
-            render();
-            return ports.length;
-        }
-
-        function init() {
-            if (!listEl) return;
-            /* 切换到端口面板时立即刷新 */
-            document.addEventListener("click", (ev) => {
-                const btn = ev.target.closest('.q3_nav_btn[data-pane="port"]');
-                if (btn) load();
-            });
-            document.addEventListener("wv-theme-change", render);
-            /* 首次加载 + 失败时 2s 后重试一次 */
-            load().then((n) => {
-                if (!n) setTimeout(load, 2000);
-            });
-            timer = setInterval(load, 60000);
-        }
-
-        return { init };
-    })();
 
     const loadPanel = (function () {
         const barIds = {
@@ -1444,53 +1375,6 @@
         return { init };
     })();
 
-    /* ====================================================================
-     * 按键面板：发送组合键 / 功能键 / 导航键（配合 ui.rfb.sendKey）
-     * ================================================================== */
-    const KEYSYM_MAP = {
-        "Esc": 0xff1b, "Escape": 0xff1b, "Tab": 0xff09, "Enter": 0xff0d,
-        "Return": 0xff0d, "Space": 0x0020, "Backspace": 0xff08,
-        "Delete": 0xffff, "Del": 0xffff, "Home": 0xff50, "End": 0xff57,
-        "PageUp": 0xff55, "PageDown": 0xff56, "Up": 0xff52, "Down": 0xff54,
-        "Left": 0xff51, "Right": 0xff53, "Insert": 0xff63,
-        "Ctrl": 0xffe3, "Shift": 0xffe1, "Alt": 0xffe9,
-        "Win": 0xffeb, "Super": 0xffeb, "Menu": 0xff67,
-        "PrintScreen": 0xff61, "PrtSc": 0xff61,
-        "CapsLock": 0xffe5, "ScrollLock": 0xff14, "Pause": 0xff13,
-    };
-    for (let i = 1; i <= 12; i++) {
-        KEYSYM_MAP["F" + i] = 0xffbe + (i - 1);
-    }
-
-    function keysymOf(name) {
-        if (KEYSYM_MAP[name]) return KEYSYM_MAP[name];
-        if (name.length === 1) return name.charCodeAt(0);
-        return null;
-    }
-
-    function sendKeys(combo) {
-        const ui = window.UI;
-        if (!ui || !ui.rfb) return false;
-        const parts = String(combo).split("+").map((s) => s.trim()).filter(Boolean);
-        if (!parts.length) return false;
-        const downSeq = parts.map((p) => keysymOf(p)).filter((v) => v != null);
-        if (downSeq.length !== parts.length) return false;
-        const upSeq = downSeq.slice().reverse();
-        for (const ks of downSeq) {
-            try { ui.rfb.sendKey(ks, null, true); } catch (e) { /* 忽略 */ }
-        }
-        for (const ks of upSeq) {
-            try { ui.rfb.sendKey(ks, null, false); } catch (e) { /* 忽略 */ }
-        }
-        return true;
-    }
-
-    function setupKeysPanel() {
-        document.querySelectorAll(".keys_btn[data-combo]").forEach((b) => {
-            b.addEventListener("click", () => sendKeys(b.dataset.combo));
-        });
-    }
-
     function boot() {
         setupQ3Nav();
         setupScreenTools();
@@ -1501,10 +1385,8 @@
         fm.init();
         term.init();
         srvlog.init();
-        portPanel.init();
         loadPanel.init();
         connStatus.init();
-        setupKeysPanel();
         perf.init();
         setupEncoder();
     }

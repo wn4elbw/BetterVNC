@@ -312,18 +312,12 @@
                 <button class="q3_nav_btn active" data-pane="zoom"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
                         data-th="color:navfg">缩放</button>
-                <button class="q3_nav_btn" data-pane="port"
-                        style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
-                        data-th="color:navfg">端口</button>
                 <button class="q3_nav_btn" data-pane="conn"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
                         data-th="color:navfg">连接</button>
                 <button class="q3_nav_btn" data-pane="load"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
                         data-th="color:navfg">负载</button>
-                <button class="q3_nav_btn" data-pane="keys"
-                        style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
-                        data-th="color:navfg">按键</button>
                 <button class="q3_nav_btn" data-pane="perf"
                         style="background:transparent;border:none;border-radius:4px;color:#e8e8ec;font-size:12px;padding:6px 4px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap"
                         data-th="color:navfg">性能</button>
@@ -416,170 +410,6 @@
                         </div>
                         <div id="load_extra" style="color:#b6bac2;font-size:11px;line-height:1.7"
                              data-th="color:muted"></div>
-                    </div>
-                </div>
-
-                <div class="q3_pane" data-pane="port">
-                    <div id="port_panel" style="font-size:11px;font-family:inherit">
-                        <div class="conn_hd"
-                             style="font-weight:600;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #626a76;color:#ffffff;font-size:12px"
-                             data-th="color:fg;border-color:border">本机开放端口</div>
-                        <div id="port_list"
-                             style="max-height:150px;overflow-y:auto;overflow-x:hidden"></div>
-                    </div>
-                </div>
-
-                <div class="q3_pane" data-pane="keys">
-                    <div id="keys_panel" style="font-size:13px;font-family:inherit">
-                        <div class="conn_hd"
-                             style="font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #626a76;color:#ffffff"
-                             data-th="color:fg;border-color:border">按键发送</div>
-                        <div class="conn_hint" style="color:#b6bac2;font-size:12px;line-height:1.6;margin-bottom:8px"
-                             data-th="color:muted">点击按钮向远程发送按键或组合键（Ctrl+Alt+Del 等）。</div>
-
-                        <div class="keys_sec" style="margin-bottom:10px">
-                            <div class="keys_hd" style="color:#b6bac2;font-size:12px;margin-bottom:4px"
-                                 data-th="color:muted">常用组合键</div>
-                            <div class="keys_grid" style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-                                <button class="keys_btn" data-combo="Ctrl+C" title="复制"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Ctrl+C</button>
-                                <button class="keys_btn" data-combo="Ctrl+V" title="粘贴"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Ctrl+V</button>
-                                <button class="keys_btn" data-combo="Ctrl+X" title="剪切"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Ctrl+X</button>
-                                <button class="keys_btn" data-combo="Ctrl+Z" title="撤销"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Ctrl+Z</button>
-                                <button class="keys_btn" data-combo="Ctrl+A" title="全选"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Ctrl+A</button>
-                                <button class="keys_btn" data-combo="Ctrl+S" title="保存"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Ctrl+S</button>
-                                <button class="keys_btn" data-combo="Alt+Tab" title="切换窗口"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Alt+Tab</button>
-                                <button class="keys_btn" data-combo="Alt+F4" title="关闭窗口"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Alt+F4</button>
-                                <button class="keys_btn" data-combo="Ctrl+Alt+Del" title="安全选项"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Ctrl+Alt+Del</button>
-                                <button class="keys_btn" data-combo="Win+R" title="运行"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Win+R</button>
-                                <button class="keys_btn" data-combo="Win+D" title="显示桌面"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Win+D</button>
-                                <button class="keys_btn" data-combo="Win+E" title="文件资源管理器"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Win+E</button>
-                                <button class="keys_btn" data-combo="Win+L" title="锁屏"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Win+L</button>
-                                <button class="keys_btn" data-combo="Ctrl+Shift+Esc" title="任务管理器"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Ctrl+Shift+Esc</button>
-                                <button class="keys_btn" data-combo="PrintScreen" title="截图"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">PrintScreen</button>
-                                <button class="keys_btn" data-combo="Alt+Space" title="窗口菜单"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Alt+Space</button>
-                            </div>
-                        </div>
-
-                        <div class="keys_sec" style="margin-bottom:10px">
-                            <div class="keys_hd" style="color:#b6bac2;font-size:12px;margin-bottom:4px"
-                                 data-th="color:muted">功能键</div>
-                            <div class="keys_grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:5px">
-                                <button class="keys_btn" data-combo="Esc" title="Esc"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Esc</button>
-                                <button class="keys_btn" data-combo="F1" title="F1"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F1</button>
-                                <button class="keys_btn" data-combo="F2" title="F2"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F2</button>
-                                <button class="keys_btn" data-combo="F3" title="F3"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F3</button>
-                                <button class="keys_btn" data-combo="F4" title="F4"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F4</button>
-                                <button class="keys_btn" data-combo="F5" title="F5"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F5</button>
-                                <button class="keys_btn" data-combo="F6" title="F6"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F6</button>
-                                <button class="keys_btn" data-combo="F7" title="F7"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F7</button>
-                                <button class="keys_btn" data-combo="F8" title="F8"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F8</button>
-                                <button class="keys_btn" data-combo="F9" title="F9"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F9</button>
-                                <button class="keys_btn" data-combo="F10" title="F10"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F10</button>
-                                <button class="keys_btn" data-combo="F11" title="F11"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">F11</button>
-                            </div>
-                        </div>
-
-                        <div class="keys_sec">
-                            <div class="keys_hd" style="color:#b6bac2;font-size:12px;margin-bottom:4px"
-                                 data-th="color:muted">导航 / 编辑</div>
-                            <div class="keys_grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:5px">
-                                <button class="keys_btn" data-combo="Tab" title="Tab"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Tab</button>
-                                <button class="keys_btn" data-combo="Enter" title="Enter"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Enter</button>
-                                <button class="keys_btn" data-combo="Space" title="空格"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">空格</button>
-                                <button class="keys_btn" data-combo="Backspace" title="退格"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">退格</button>
-                                <button class="keys_btn" data-combo="Delete" title="Delete"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Delete</button>
-                                <button class="keys_btn" data-combo="Home" title="Home"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">Home</button>
-                                <button class="keys_btn" data-combo="End" title="End"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">End</button>
-                                <button class="keys_btn" data-combo="PageUp" title="上翻页"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">PageUp</button>
-                                <button class="keys_btn" data-combo="PageDown" title="下翻页"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">PageDown</button>
-                                <button class="keys_btn" data-combo="Up" title="↑"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">↑</button>
-                                <button class="keys_btn" data-combo="Down" title="↓"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">↓</button>
-                                <button class="keys_btn" data-combo="Left" title="←"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">←</button>
-                                <button class="keys_btn" data-combo="Right" title="→"
-                                        style="background:#33373d;border:1px solid #4a4e56;color:#e8e8ec;border-radius:4px;padding:5px 4px;font-size:12px;cursor:pointer;font-family:inherit;text-align:center"
-                                        data-th="background:panel;color:fg;border-color:input">→</button>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
