@@ -122,24 +122,107 @@
             return ch;
         }
 
+        /* 实体控制键状态（Ctrl/Shift/Alt 长按进入组合键模式） */
+        const heldCtrl = { down: false, seq: [] };
+        const heldShift = { down: false, seq: [] };
+        const heldAlt = { down: false, seq: [] };
+        let comboBar = null;      // 组合键显示条
+        const ctrlBtnRef = {};    // 实体按下时高亮对应按钮
+
+        function getHeld() {
+            return [heldCtrl, heldShift, heldAlt].filter((h) => h.down);
+        }
+
+        function activeCtrl() {
+            return heldCtrl.down ? heldCtrl : (heldShift.down ? heldShift :
+                (heldAlt.down ? heldAlt : null));
+        }
+
+        function sendKeysym(ks, down) {
+            const ui = window.UI;
+            if (!ui || !ui.rfb || typeof ui.rfb.sendKey !== "function") return;
+            try { ui.rfb.sendKey(ks, down); } catch (err) { /* 忽略 */ }
+        }
+
         function press(key) {
             const ui = window.UI;
             if (!ui || !ui.rfb || typeof ui.rfb.sendKey !== "function") return;
+            const held = activeCtrl();
+            const ks = keyToKeysym(key);
+            if (held) {
+                /* 控制键按住：进入组合模式，累积按键 */
+                held.seq.push(key);
+                updateComboBar();
+                return;
+            }
             try {
-                const ks = keyToKeysym(key);
                 ui.rfb.sendKey(ks, true);
                 ui.rfb.sendKey(ks, false);
             } catch (err) { /* 忽略 */ }
         }
 
+        /* 控制键释放：把累积组合按顺序发送，最后一个键不带控制键 */
+        function flushCombo(held) {
+            const seq = held.seq.slice();
+            held.seq = [];
+            updateComboBar();
+            if (!seq.length) return;
+            const ui = window.UI;
+            if (!ui || !ui.rfb) return;
+            const ctrlKs = held === heldShift ? 0xFFE1 : held === heldAlt ? 0xFFE9 : 0xFFE3;
+            try {
+                /* 控制键按下 */
+                ui.rfb.sendKey(ctrlKs, true);
+                /* 前 n-1 个键：与控制键组合 */
+                for (let i = 0; i < seq.length - 1; i++) {
+                    const ks = keyToKeysym(seq[i]);
+                    ui.rfb.sendKey(ks, true);
+                    ui.rfb.sendKey(ks, false);
+                }
+                /* 控制键释放（最后一个按钮不再组合控制键） */
+                ui.rfb.sendKey(ctrlKs, false);
+                /* 最后一个键：不带控制键 */
+                const lastKs = keyToKeysym(seq[seq.length - 1]);
+                ui.rfb.sendKey(lastKs, true);
+                ui.rfb.sendKey(lastKs, false);
+            } catch (err) { /* 忽略 */ }
+        }
+
+        function updateComboBar() {
+            if (!comboBar) return;
+            const held = getHeld();
+            const name = heldCtrl.down ? "Ctrl" : heldShift.down ? "Shift" : heldAlt.down ? "Alt" : "";
+            const seq = activeCtrl() ? activeCtrl().seq : [];
+            comboBar.textContent = name
+                ? "组合: " + name + " + " + (seq.join(" ") || "…（点击软键盘键累积）")
+                : "";
+            comboBar.style.display = name ? "block" : "none";
+        }
+
         function makeKey(k, label, flex, t) {
             const b = document.createElement("button");
             b.textContent = label;
+            const isCtrl = ["Ctrl", "Shift", "Alt"].includes(k);
             b.style.cssText = "flex:" + flex +
                 ";padding:3px 2px;min-height:24px;background:" + t.panel +
                 ";border:1px solid " + t.input + ";border-radius:4px;color:" + t.fg +
                 ";font-size:11px;cursor:pointer;font-family:inherit;line-height:1.2";
+            /* 点击/按下反馈 */
+            const onDown = () => {
+                b.style.background = t.navactive;
+                b.style.borderColor = t.navactiveborder;
+            };
+            const onUp = () => {
+                b.style.background = t.panel;
+                b.style.borderColor = t.input;
+            };
+            b.addEventListener("pointerdown", onDown);
+            b.addEventListener("pointerup", onUp);
+            b.addEventListener("pointerleave", onUp);
             b.addEventListener("click", () => press(k));
+            if (isCtrl) {
+                ctrlBtnRef[k] = b;
+            }
             return b;
         }
 
@@ -147,7 +230,17 @@
             body.innerHTML = "";
             const t = theme.palette();
             const wrap = document.createElement("div");
-            wrap.style.cssText = "display:flex;gap:10px;align-items:stretch;height:100%";
+            wrap.style.cssText = "display:flex;flex-direction:column;gap:6px;height:100%";
+
+            /* 组合键提示条 */
+            comboBar = document.createElement("div");
+            comboBar.style.cssText = "display:none;flex:0 0 auto;padding:3px 8px;background:" +
+                t.navactive + ";border:1px solid " + t.navactiveborder +
+                ";border-radius:4px;color:#fff;font-size:11px;font-family:inherit";
+            wrap.appendChild(comboBar);
+
+            const keys = document.createElement("div");
+            keys.style.cssText = "display:flex;gap:10px;align-items:stretch;flex:1;min-height:0";
 
             /* 主键盘（左侧，flex 撑满） */
             const main = document.createElement("div");
@@ -181,9 +274,11 @@
                 npad.appendChild(r);
             }
 
-            wrap.appendChild(main);
-            wrap.appendChild(npad);
+            keys.appendChild(main);
+            keys.appendChild(npad);
+            wrap.appendChild(keys);
             body.appendChild(wrap);
+            updateComboBar();
         }
 
         function show() {
@@ -199,6 +294,18 @@
             mask.style.display = "none";
         }
 
+        function setHeld(obj, btnKey, down) {
+            obj.down = down;
+            const btn = ctrlBtnRef[btnKey];
+            const t = theme.palette();
+            if (btn) {
+                btn.style.background = down ? t.navactive : t.panel;
+                btn.style.borderColor = down ? t.navactiveborder : t.input;
+            }
+            if (!down) flushCombo(obj);
+            updateComboBar();
+        }
+
         function init() {
             if (!mask || !closeBtn) return;
             $("st_kbd_btn").addEventListener("click", () => {
@@ -207,6 +314,23 @@
             });
             closeBtn.addEventListener("click", hide);
             document.addEventListener("wv-theme-change", () => { if (visible) render(); });
+
+            /* 实体键盘控制键监听：Ctrl/Shift/Alt 长按进入组合键模式 */
+            document.addEventListener("keydown", (ev) => {
+                if (ev.key === "Control") setHeld(heldCtrl, "Ctrl", true);
+                else if (ev.key === "Shift") setHeld(heldShift, "Shift", true);
+                else if (ev.key === "Alt") setHeld(heldAlt, "Alt", true);
+            });
+            document.addEventListener("keyup", (ev) => {
+                if (ev.key === "Control") setHeld(heldCtrl, "Ctrl", false);
+                else if (ev.key === "Shift") setHeld(heldShift, "Shift", false);
+                else if (ev.key === "Alt") setHeld(heldAlt, "Alt", false);
+            });
+            window.addEventListener("blur", () => {
+                setHeld(heldCtrl, "Ctrl", false);
+                setHeld(heldShift, "Shift", false);
+                setHeld(heldAlt, "Alt", false);
+            });
         }
 
         return { init };
