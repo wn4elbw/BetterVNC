@@ -385,16 +385,16 @@
             body.innerHTML = "";
             const t = theme.palette();
             const wrap = document.createElement("div");
-            wrap.style.cssText = "display:flex;flex-direction:column;gap:3px;height:200px";
+            wrap.style.cssText = "display:flex;flex-direction:column;gap:3px;height:210px";
 
             const keys = document.createElement("div");
-            keys.style.cssText = "display:flex;gap:8px;align-items:stretch;flex:1;min-height:0;overflow:hidden";
+            keys.style.cssText = "display:flex;gap:10px;align-items:flex-start;flex:1;min-height:0;overflow:hidden";
 
-            /* 主键盘（左侧：字母区 + 导航区，紧凑摆放） */
+            /* ===== 左区块：字母区 + 导航区（大键盘，靠左靠上） ===== */
             const main = document.createElement("div");
-            main.style.cssText = "display:flex;flex-direction:row;gap:6px;flex:1 1 auto;min-width:220px;max-width:720px;min-height:0";
+            main.style.cssText = "display:flex;flex-direction:row;gap:6px;flex:0 1 auto;min-width:220px;max-width:660px;min-height:0;height:100%";
             const mainAlpha = document.createElement("div");
-            mainAlpha.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-width:0";
+            mainAlpha.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-width:0;height:100%";
             for (const row of ROWS) {
                 const r = document.createElement("div");
                 r.style.cssText = "display:flex;gap:1px;flex:1";
@@ -411,10 +411,10 @@
                 }
                 mainAlpha.appendChild(r);
             }
-            /* 导航区：编辑键 + 方向键（小正方形按钮） */
+            /* 导航区：编辑键 + 方向键（小正方形，位于字母区右下） */
             const nav = document.createElement("div");
             nav.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:0 0 38px;border-left:1px solid " +
-                t.border + ";padding-left:4px";
+                t.border + ";padding-left:4px;align-self:flex-end;height:85%";
             for (const row of NAVKEYS) {
                 const r = document.createElement("div");
                 r.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);gap:1px;flex:1";
@@ -430,10 +430,14 @@
             main.appendChild(mainAlpha);
             main.appendChild(nav);
 
-            /* 小键盘（右侧，小正方形按钮，窄列） */
+            /* ===== 右区块：小键盘 + 历史 + 快捷（位于大键盘右下） ===== */
+            const right = document.createElement("div");
+            right.style.cssText = "display:flex;gap:8px;align-items:flex-end;flex:0 0 auto;margin-left:auto";
+
+            /* 数字小键盘（小正方形，靠下） */
             const npad = document.createElement("div");
             npad.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:0 0 66px;border-left:1px solid " +
-                t.border + ";padding-left:4px";
+                t.border + ";padding-left:4px;align-self:flex-end";
             for (const row of NUMPAD) {
                 const cols = row.length;
                 const r = document.createElement("div");
@@ -450,14 +454,14 @@
                 }
                 npad.appendChild(r);
             }
-
-            /* 历史记录 & 快捷发送（小键盘右侧两列滚轮框） */
-            keys.appendChild(main);
-            keys.appendChild(npad);
-            keys.appendChild(makeListCol("历史记录", history,
+            right.appendChild(npad);
+            right.appendChild(makeListCol("历史记录", history,
                 (label) => recordHistory(label), true, t));
-            keys.appendChild(makeListCol("快捷发送", quick,
+            right.appendChild(makeListCol("快捷发送", quick,
                 (label) => recordHistory(label), false, t));
+
+            keys.appendChild(main);
+            keys.appendChild(right);
             wrap.appendChild(keys);
             body.appendChild(wrap);
             syncCtrlBtn();
@@ -467,7 +471,7 @@
         /* 滚轮列表列：标题 + 可拖拽排序列表 + 底部按钮 */
         function makeListCol(title, list, onSend, isHistory, t) {
             const col = document.createElement("div");
-            col.style.cssText = "display:flex;flex-direction:column;flex:0 0 150px;" +
+            col.style.cssText = "display:flex;flex-direction:column;flex:0 0 150px;height:200px;" +
                 "border-left:1px solid " + t.border + ";padding-left:8px;gap:3px;min-width:0;min-height:0";
             const hd = document.createElement("div");
             hd.textContent = title;
