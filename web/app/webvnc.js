@@ -273,23 +273,33 @@
             const ui = window.UI;
             if (!ui || !ui.rfb) return;
             const ctrlKs = held === heldShift ? 0xFFE1 : held === heldAlt ? 0xFFE9 : 0xFFE3;
+            const isCtrl = held === heldCtrl;
             try {
                 /* 控制键按下 */
                 ui.rfb.sendKey(ctrlKs, true);
-                /* 前 n-1 个键：与控制键组合 */
-                for (let i = 0; i < seq.length - 1; i++) {
-                    const ks = keyToKeysym(seq[i]);
+                if (seq.length === 1) {
+                    /* 单个键：作为组合键发送（带控制键） */
+                    const ks = keyToKeysym(seq[0]);
                     ui.rfb.sendKey(ks, true);
                     ui.rfb.sendKey(ks, false);
+                    ui.rfb.sendKey(ctrlKs, false);
+                } else {
+                    /* 前 n-1 个键：与控制键组合 */
+                    for (let i = 0; i < seq.length - 1; i++) {
+                        const ks = keyToKeysym(seq[i]);
+                        ui.rfb.sendKey(ks, true);
+                        ui.rfb.sendKey(ks, false);
+                    }
+                    /* 控制键释放（最后一个按钮不再组合控制键） */
+                    ui.rfb.sendKey(ctrlKs, false);
+                    /* 最后一个键：不带控制键 */
+                    const lastKs = keyToKeysym(seq[seq.length - 1]);
+                    ui.rfb.sendKey(lastKs, true);
+                    ui.rfb.sendKey(lastKs, false);
                 }
-                /* 控制键释放（最后一个按钮不再组合控制键） */
-                ui.rfb.sendKey(ctrlKs, false);
-                /* 最后一个键：不带控制键 */
-                const lastKs = keyToKeysym(seq[seq.length - 1]);
-                ui.rfb.sendKey(lastKs, true);
-                ui.rfb.sendKey(lastKs, false);
             } catch (err) { /* 忽略 */ }
-            recordHistory(seq.join("+"));
+            /* 仅 Ctrl 组合记入历史（格式 Ctrl+X） */
+            if (isCtrl) recordHistory("Ctrl+" + seq.join("+"));
         }
 
         function updateComboBar() {
@@ -344,11 +354,11 @@
             wrap.appendChild(comboBar);
 
             const keys = document.createElement("div");
-            keys.style.cssText = "display:flex;gap:10px;align-items:stretch;flex:1;min-height:0";
+            keys.style.cssText = "display:flex;gap:10px;align-items:stretch;flex:1;min-height:0;overflow:hidden";
 
             /* 主键盘（左侧，flex 撑满） */
             const main = document.createElement("div");
-            main.style.cssText = "display:flex;flex-direction:column;gap:4px;flex:1;min-width:0";
+            main.style.cssText = "display:flex;flex-direction:column;gap:4px;flex:1 1 auto;min-width:260px;min-height:0";
             for (const row of ROWS) {
                 const r = document.createElement("div");
                 r.style.cssText = "display:flex;gap:3px;flex:1";
@@ -393,8 +403,8 @@
         /* 滚轮列表列：标题 + 可拖拽排序列表 + 底部按钮 */
         function makeListCol(title, list, onSend, isHistory, t) {
             const col = document.createElement("div");
-            col.style.cssText = "display:flex;flex-direction:column;flex:0 0 170px;" +
-                "border-left:1px solid " + t.border + ";padding-left:10px;gap:4px;min-width:0";
+            col.style.cssText = "display:flex;flex-direction:column;flex:0 0 180px;" +
+                "border-left:1px solid " + t.border + ";padding-left:10px;gap:4px;min-width:0;min-height:0";
             const hd = document.createElement("div");
             hd.textContent = title;
             hd.style.cssText = "color:" + t.muted + ";font-size:11px;flex:0 0 auto";
@@ -428,20 +438,113 @@
                 bar.appendChild(clear);
             } else {
                 const add = document.createElement("button");
-                add.textContent = "修改快捷指令";
+                add.textContent = "修改指令";
                 add.style.cssText = makeBtnStyle(t);
-                add.addEventListener("click", () => {
-                    const label = window.prompt("输入新的快捷指令（如 Ctrl+Shift+N）：");
-                    if (label && label.trim()) {
-                        quick = quick.concat([label.trim()]);
-                        saveList("osk_quick", quick);
-                        render();
-                    }
-                });
+                add.addEventListener("click", () => editQuickDialog(t));
                 bar.appendChild(add);
             }
             col.appendChild(bar);
             return col;
+        }
+
+        /* 修改快捷指令弹窗：列出已有指令（可删除），可新增（追加到末尾） */
+        function editQuickDialog(t) {
+            const cv = document.createElement("div");
+            cv.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;" +
+                "background:rgba(40,42,46,0.5);z-index:9100;display:flex;" +
+                "align-items:center;justify-content:center";
+            const box = document.createElement("div");
+            box.style.cssText = "background:#33373d;border:1px solid #636a75;border-radius:10px;" +
+                "padding:16px 20px;color:#fff;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;" +
+                "min-width:340px;max-width:420px;max-height:70vh;display:flex;flex-direction:column";
+            const hd = document.createElement("div");
+            hd.textContent = "修改快捷指令";
+            hd.style.cssText = "font-weight:600;margin-bottom:10px";
+            box.appendChild(hd);
+
+            const listWrap = document.createElement("div");
+            listWrap.style.cssText = "flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:0";
+            const renderList = () => {
+                listWrap.innerHTML = "";
+                if (!quick.length) {
+                    const e = document.createElement("div");
+                    e.textContent = "暂无快捷指令";
+                    e.style.cssText = "color:#b6bac2;font-size:12px";
+                    listWrap.appendChild(e);
+                } else {
+                    quick.forEach((label, i) => {
+                        const row = document.createElement("div");
+                        row.style.cssText = "display:flex;align-items:center;gap:6px";
+                        const span = document.createElement("span");
+                        span.textContent = label;
+                        span.style.cssText = "flex:1;color:#fff;font-family:Consolas,monospace;font-size:12px";
+                        span.title = "内置指令不可删除";
+                        const del = document.createElement("button");
+                        del.textContent = "删除";
+                        const builtin = BUILTIN_QUICK.includes(label);
+                        del.style.cssText = "border:none;border-radius:4px;padding:2px 10px;font-size:11px;" +
+                            "cursor:pointer;font-family:inherit;color:#fff;background:#7a4a4a";
+                        if (builtin) {
+                            del.textContent = "内置";
+                            del.disabled = true;
+                            del.style.background = "transparent";
+                            del.style.border = "1px solid #636a75";
+                            del.style.color = "#8a8f98";
+                            del.style.cursor = "default";
+                        } else {
+                            del.addEventListener("click", () => {
+                                quick = quick.filter((_, j) => j !== i);
+                                saveList("osk_quick", quick);
+                                renderList();
+                            });
+                        }
+                        row.appendChild(span);
+                        row.appendChild(del);
+                        listWrap.appendChild(row);
+                    });
+                }
+            };
+            renderList();
+            box.appendChild(listWrap);
+
+            const inputRow = document.createElement("div");
+            inputRow.style.cssText = "display:flex;gap:6px;margin-top:10px;flex:0 0 auto";
+            const inp = document.createElement("input");
+            inp.placeholder = "新增指令，如 Ctrl+Shift+N";
+            inp.style.cssText = "flex:1;background:#2b2e33;border:1px solid #4a4e56;color:#fff;" +
+                "border-radius:4px;padding:4px 8px;font-size:12px;font-family:inherit;outline:none";
+            const addBtn = document.createElement("button");
+            addBtn.textContent = "新增";
+            addBtn.style.cssText = "border:none;border-radius:4px;padding:4px 12px;font-size:12px;" +
+                "cursor:pointer;font-family:inherit;color:#fff;background:#636a75";
+            addBtn.addEventListener("click", () => {
+                const v = inp.value.trim();
+                if (v) {
+                    quick = quick.concat([v]);
+                    saveList("osk_quick", quick);
+                    inp.value = "";
+                    renderList();
+                }
+            });
+            inp.addEventListener("keydown", (ev) => {
+                if (ev.key === "Enter") addBtn.click();
+            });
+            inputRow.appendChild(inp);
+            inputRow.appendChild(addBtn);
+            box.appendChild(inputRow);
+
+            const closeRow = document.createElement("div");
+            closeRow.style.cssText = "display:flex;justify-content:flex-end;margin-top:10px;flex:0 0 auto";
+            const close = document.createElement("button");
+            close.textContent = "完成";
+            close.style.cssText = "border:none;border-radius:4px;padding:5px 18px;font-size:12px;" +
+                "cursor:pointer;font-family:inherit;color:#fff;background:#636a75";
+            close.addEventListener("click", () => { cv.remove(); render(); });
+            closeRow.appendChild(close);
+            box.appendChild(closeRow);
+
+            cv.appendChild(box);
+            document.body.appendChild(cv);
         }
 
         function makeBtnStyle(t) {
