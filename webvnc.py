@@ -293,7 +293,7 @@ def get_netstat():
 
 
 # ---------------------------------------------------------------------------
-# 系统占用统计（被预览机 CPU / 内存 / 磁盘 / 交换），供左下「负载」面板 1s 刷新
+# 系统占用统计（被预览机 CPU / 内存 / 磁盘），供左下「负载」面板 1s 刷新
 # Linux 解析 /proc；Windows 用 ctypes（GetSystemTimes / GlobalMemoryStatusEx）
 # ---------------------------------------------------------------------------
 _cpu_prev = None  # (jiffies_total, jiffies_idle) 上次采样，用于计算 CPU 使用率
@@ -316,7 +316,7 @@ def _cpu_linux():
 
 
 def get_system_stats():
-    """返回被预览机系统占用字典：cpu_percent/mem/mem_percent/swap/disk 等"""
+    """返回被预览机系统占用字典：cpu_percent/mem/mem_percent/disk 等"""
     global _cpu_prev
     stats = {
         "cpu_percent": None,
@@ -324,9 +324,6 @@ def get_system_stats():
         "mem_total": None,
         "mem_used": None,
         "mem_percent": None,
-        "swap_total": None,
-        "swap_used": None,
-        "swap_percent": None,
         "disk_total": None,
         "disk_used": None,
         "disk_percent": None,
@@ -420,12 +417,6 @@ def get_system_stats():
                 stats["mem_used"] = used
                 if used is not None:
                     stats["mem_percent"] = round(used / total * 100, 1)
-            sw_total = meminfo.get("SwapTotal") or 0
-            sw_free = meminfo.get("SwapFree") or 0
-            stats["swap_total"] = sw_total
-            stats["swap_used"] = max(0, sw_total - sw_free)
-            if sw_total:
-                stats["swap_percent"] = round(stats["swap_used"] / sw_total * 100, 1)
         except Exception:
             pass
 

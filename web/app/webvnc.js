@@ -1149,13 +1149,11 @@
         const barIds = {
             cpu: $("load_cpu_bar"),
             mem: $("load_mem_bar"),
-            swap: $("load_swap_bar"),
             disk: $("load_disk_bar"),
         };
         const txtIds = {
             cpu: $("load_cpu"),
             mem: $("load_mem"),
-            swap: $("load_swap"),
             disk: $("load_disk"),
         };
         const extraEl = $("load_extra");
@@ -1200,13 +1198,6 @@
                 memTxt = fmtBytes(s.mem_used) + " / " + fmtBytes(s.mem_total);
             }
             setBar("mem", s.mem_percent, memTxt);
-            /* 交换 */
-            let swapTxt = "--";
-            if (s.swap_total) {
-                swapTxt = (s.swap_percent != null ? s.swap_percent + "% " : "") +
-                    "(" + fmtBytes(s.swap_used) + " / " + fmtBytes(s.swap_total) + ")";
-            }
-            setBar("swap", s.swap_percent, swapTxt);
             /* 磁盘 */
             let diskTxt = "--";
             if (s.disk_percent != null) {
