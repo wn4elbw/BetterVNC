@@ -110,8 +110,7 @@ IS_WINDOWS = (os.name == "nt")
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = "log"  # 相对路径，main() 中先切换到脚本目录
-THEME_FILE = "theme.json"  # 界面主题配置文件（深色/浅色）
-DISPLAY_FILE = "display.json"  # 显示设置自定义选项
+CONFIG_FILE = "config.json"  # 统一配置文件
 _log_lock = threading.Lock()
 _log_file = None       # 当前日志文件（时间戳命名）
 _log_last_clean = 0.0  # 上次清理旧日志时间（每天清理前一天）
@@ -155,28 +154,64 @@ def _clean_old_logs():
 
 def load_theme():
     """读取界面主题配置，默认深色"""
-    try:
-        with open(THEME_FILE, "r", encoding="utf-8") as fh:
-            d = json.load(fh)
-            if d.get("theme") in ("dark", "light"):
-                return d["theme"]
-    except (OSError, ValueError):
-        pass
-    return "dark"
+    return _load_config().get("theme", "dark")
 
 
 def save_theme(theme):
     """保存界面主题配置到文件"""
     if theme not in ("dark", "light"):
         theme = "dark"
-    with open(THEME_FILE, "w", encoding="utf-8") as fh:
-        json.dump({"theme": theme}, fh)
+    config = _load_config()
+    config["theme"] = theme
+    _save_config(config)
+
+
+def _load_config():
+    config = {"theme": "dark", "encoder": "zlib",
+              "display": {"resolutions": [], "scales": []}}
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
+            loaded = json.load(fh)
+        if isinstance(loaded, dict):
+            config.update(loaded)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        pass
+
+    # 将历史配置合并到统一配置文件，保留用户已有设置。
+    legacy = (("theme.json", "theme"), ("encoder.json", "encoder"))
+    for filename, key in legacy:
+        if config.get(key) not in (None, "dark", "zlib"):
+            continue
+        try:
+            with open(filename, "r", encoding="utf-8") as fh:
+                value = json.load(fh).get(key)
+            if value:
+                config[key] = value
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            pass
+    if not isinstance(config.get("display"), dict):
+        config["display"] = {"resolutions": [], "scales": []}
+    try:
+        with open("display.json", "r", encoding="utf-8") as fh:
+            legacy_display = json.load(fh)
+        if not config["display"].get("resolutions"):
+            config["display"]["resolutions"] = legacy_display.get("resolutions", [])
+        if not config["display"].get("scales"):
+            config["display"]["scales"] = legacy_display.get("scales", [])
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        pass
+    _save_config(config)
+    return config
+
+
+def _save_config(config):
+    with open(CONFIG_FILE, "w", encoding="utf-8") as fh:
+        json.dump(config, fh, ensure_ascii=False, indent=2)
 
 
 def _load_display_custom():
     try:
-        with open(DISPLAY_FILE, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
+        data = _load_config().get("display", {})
         resolutions = []
         for item in data.get("resolutions", []):
             width, height = int(item["width"]), int(item["height"])
@@ -193,8 +228,9 @@ def _load_display_custom():
 
 
 def _save_display_custom(data):
-    with open(DISPLAY_FILE, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
+    config = _load_config()
+    config["display"] = data
+    _save_config(config)
 
 
 def _display_custom_action(data):
@@ -234,28 +270,22 @@ def _display_custom_action(data):
     return {"ok": True, "custom": custom}
 
 
-ENCODER_FILE = "encoder.json"  # 传输编码配置
 _ENCODERS = ("zlib", "hextile", "raw")
 
 
 def load_encoder():
     """读取传输编码配置，默认 zlib"""
-    try:
-        with open(ENCODER_FILE, "r", encoding="utf-8") as fh:
-            d = json.load(fh)
-            if d.get("encoder") in _ENCODERS:
-                return d["encoder"]
-    except (OSError, ValueError):
-        pass
-    return "zlib"
+    value = _load_config().get("encoder")
+    return value if value in _ENCODERS else "zlib"
 
 
 def save_encoder(encoder):
     """保存传输编码配置到文件"""
     if encoder not in _ENCODERS:
         encoder = "zlib"
-    with open(ENCODER_FILE, "w", encoding="utf-8") as fh:
-        json.dump({"encoder": encoder}, fh)
+    config = _load_config()
+    config["encoder"] = encoder
+    _save_config(config)
 
 
 def _hex_to_ip(hex_ip, is_v6=False):
