@@ -129,6 +129,109 @@
         let comboBar = null;      // 组合键显示条
         const ctrlBtnRef = {};    // 实体按下时高亮对应按钮
 
+        /* ===== 历史记录 & 快捷发送（localStorage 持久化） ===== */
+        const BUILTIN_QUICK = [
+            "Ctrl+Alt+Del", "Ctrl+Shift+Esc", "Win+R", "Win+L",
+            "Ctrl+C", "Ctrl+V", "Ctrl+Z", "Ctrl+Shift+S",
+        ];
+        const KEY_ALIAS = {
+            "Ctrl": 0xFFE3, "Control": 0xFFE3, "Shift": 0xFFE1,
+            "Alt": 0xFFE9, "Win": 0xFFEB, "Super": 0xFFEB,
+            "Esc": 0xFF1B, "Escape": 0xFF1B, "Enter": 0xFF0D,
+            "Tab": 0xFF09, "Space": 0x0020, "Del": 0xFFFF, "Delete": 0xFFFF,
+            "Back": 0xFF08, "Backspace": 0xFF08, "F1": 0xFFBE, "F2": 0xFFBF,
+            "F3": 0xFFC0, "F4": 0xFFC1, "F5": 0xFFC2, "F6": 0xFFC3,
+            "F7": 0xFFC4, "F8": 0xFFC5, "F9": 0xFFC6, "F10": 0xFFC7,
+            "F11": 0xFFC8, "F12": 0xFFC9,
+        };
+
+        function loadList(key, builtin) {
+            try {
+                const raw = localStorage.getItem(key);
+                if (raw) return JSON.parse(raw);
+            } catch (err) { /* 忽略 */ }
+            return builtin ? builtin.slice() : [];
+        }
+        function saveList(key, list) {
+            try { localStorage.setItem(key, JSON.stringify(list)); } catch (err) { /* 忽略 */ }
+        }
+        let history = loadList("osk_history", []);
+        let quick = loadList("osk_quick", BUILTIN_QUICK);
+
+        function recordHistory(label) {
+            history = [label].concat(history.filter((h) => h !== label));
+            if (history.length > 60) history = history.slice(0, 60);
+            saveList("osk_history", history);
+        }
+
+        /* 解析 "Ctrl+Alt+Del" 为 keysym 数组 */
+        function parseCombo(label) {
+            const parts = String(label).split("+").map((p) => p.trim()).filter(Boolean);
+            const ks = [];
+            for (const p of parts) {
+                if (KEY_ALIAS[p] !== undefined) {
+                    ks.push(KEY_ALIAS[p]);
+                } else if (/^F(1[0-2]|[1-9])$/.test(p)) {
+                    ks.push(0xFFBE + (parseInt(p.slice(1), 10) - 1));
+                } else if (p.length === 1) {
+                    ks.push(p.charCodeAt(0));
+                } else {
+                    ks.push(p.toUpperCase().charCodeAt(0));
+                }
+            }
+            return ks;
+        }
+
+        /* 发送组合（多个 keysym 同时按下后释放） */
+        function sendCombo(ksList) {
+            const ui = window.UI;
+            if (!ui || !ui.rfb) return;
+            try {
+                for (const ks of ksList) ui.rfb.sendKey(ks, true);
+                for (const ks of ksList) ui.rfb.sendKey(ks, false);
+            } catch (err) { /* 忽略 */ }
+        }
+
+        /* 点击确认弹窗：50% 透明度灰色蒙版 */
+        function confirmSend(label, onOk) {
+            const cv = document.createElement("div");
+            cv.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;" +
+                "background:rgba(40,42,46,0.5);z-index:9000;display:flex;" +
+                "align-items:center;justify-content:center";
+            const box = document.createElement("div");
+            box.style.cssText = "background:#33373d;border:1px solid #636a75;border-radius:10px;" +
+                "padding:18px 22px;color:#fff;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;" +
+                "text-align:center;min-width:260px";
+            const msg = document.createElement("div");
+            msg.textContent = "是否发送指令？";
+            msg.style.marginBottom = "6px";
+            const cmd = document.createElement("div");
+            cmd.textContent = label;
+            cmd.style.cssText = "color:#b6bac2;font-family:Consolas,monospace;margin-bottom:14px";
+            const btns = document.createElement("div");
+            btns.style.cssText = "display:flex;gap:8px;justify-content:center";
+            const ok = document.createElement("button");
+            ok.textContent = "发送";
+            const no = document.createElement("button");
+            no.textContent = "取消";
+            for (const b of [ok, no]) {
+                b.style.cssText = "border:none;border-radius:4px;padding:5px 16px;font-size:12px;" +
+                    "cursor:pointer;font-family:inherit;color:#fff";
+            }
+            ok.style.background = "#636a75";
+            no.style.background = "transparent";
+            no.style.border = "1px solid #636a75";
+            ok.addEventListener("click", () => { cv.remove(); onOk(); });
+            no.addEventListener("click", () => cv.remove());
+            btns.appendChild(ok);
+            btns.appendChild(no);
+            box.appendChild(msg);
+            box.appendChild(cmd);
+            box.appendChild(btns);
+            cv.appendChild(box);
+            document.body.appendChild(cv);
+        }
+
         function getHeld() {
             return [heldCtrl, heldShift, heldAlt].filter((h) => h.down);
         }
@@ -186,6 +289,7 @@
                 ui.rfb.sendKey(lastKs, true);
                 ui.rfb.sendKey(lastKs, false);
             } catch (err) { /* 忽略 */ }
+            recordHistory(seq.join("+"));
         }
 
         function updateComboBar() {
@@ -274,11 +378,122 @@
                 npad.appendChild(r);
             }
 
-            keys.appendChild(main);
+            /* 历史记录 & 快捷发送（小键盘右侧两列滚轮框） */
             keys.appendChild(npad);
+            keys.appendChild(makeListCol("历史记录", history,
+                (label) => recordHistory(label), true, t));
+            keys.appendChild(makeListCol("快捷发送", quick,
+                (label) => recordHistory(label), false, t));
             wrap.appendChild(keys);
             body.appendChild(wrap);
             updateComboBar();
+        }
+
+        /* 滚轮列表列：标题 + 可拖拽排序列表 + 底部按钮 */
+        function makeListCol(title, list, onSend, isHistory, t) {
+            const col = document.createElement("div");
+            col.style.cssText = "display:flex;flex-direction:column;flex:0 0 170px;" +
+                "border-left:1px solid " + t.border + ";padding-left:10px;gap:4px;min-width:0";
+            const hd = document.createElement("div");
+            hd.textContent = title;
+            hd.style.cssText = "color:" + t.muted + ";font-size:11px;flex:0 0 auto";
+            col.appendChild(hd);
+
+            const listEl = document.createElement("div");
+            listEl.style.cssText = "flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:3px;min-height:0";
+            if (!list.length) {
+                const empty = document.createElement("div");
+                empty.textContent = isHistory ? "暂无历史" : "暂无快捷指令";
+                empty.style.cssText = "color:" + t.muted + ";font-size:11px;padding:4px";
+                listEl.appendChild(empty);
+            } else {
+                list.slice().forEach((label, idx) => {
+                    listEl.appendChild(makeListItem(label, list, listEl, onSend, idx, t, isHistory));
+                });
+            }
+            col.appendChild(listEl);
+
+            const bar = document.createElement("div");
+            bar.style.cssText = "display:flex;gap:4px;flex:0 0 auto";
+            if (isHistory) {
+                const clear = document.createElement("button");
+                clear.textContent = "清空历史";
+                clear.style.cssText = makeBtnStyle(t);
+                clear.addEventListener("click", () => {
+                    history = [];
+                    saveList("osk_history", history);
+                    render();
+                });
+                bar.appendChild(clear);
+            } else {
+                const add = document.createElement("button");
+                add.textContent = "修改快捷指令";
+                add.style.cssText = makeBtnStyle(t);
+                add.addEventListener("click", () => {
+                    const label = window.prompt("输入新的快捷指令（如 Ctrl+Shift+N）：");
+                    if (label && label.trim()) {
+                        quick = quick.concat([label.trim()]);
+                        saveList("osk_quick", quick);
+                        render();
+                    }
+                });
+                bar.appendChild(add);
+            }
+            col.appendChild(bar);
+            return col;
+        }
+
+        function makeBtnStyle(t) {
+            return "flex:1;padding:2px 6px;background:" + t.panel + ";border:1px solid " +
+                t.input + ";border-radius:4px;color:" + t.fg + ";font-size:11px;cursor:pointer;font-family:inherit";
+        }
+
+        /* 列表项：可点击（弹窗确认发送）+ 可拖拽排序 */
+        function makeListItem(label, list, listEl, onSend, idx, t, isHistory) {
+            const item = document.createElement("div");
+            item.textContent = label;
+            item.draggable = true;
+            item.style.cssText = "padding:3px 6px;background:" + t.panel + ";border:1px solid " +
+                t.input + ";border-radius:4px;color:" + t.fg + ";font-size:11px;cursor:pointer;" +
+                "font-family:Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+            item.dataset.idx = idx;
+            item.addEventListener("click", () => {
+                confirmSend(label, () => {
+                    sendCombo(parseCombo(label));
+                    onSend(label);
+                    render();
+                });
+            });
+            item.addEventListener("dragstart", (ev) => {
+                ev.dataTransfer.setData("text/plain", String(idx));
+                item.style.opacity = "0.5";
+            });
+            item.addEventListener("dragend", () => { item.style.opacity = "1"; });
+            item.addEventListener("dragover", (ev) => {
+                ev.preventDefault();
+                item.style.borderColor = t.navactiveborder;
+            });
+            item.addEventListener("dragleave", () => { item.style.borderColor = t.input; });
+            item.addEventListener("drop", (ev) => {
+                ev.preventDefault();
+                item.style.borderColor = t.input;
+                const from = parseInt(ev.dataTransfer.getData("text/plain"), 10);
+                const to = parseInt(item.dataset.idx, 10);
+                if (Number.isFinite(from) && from !== to) {
+                    const arr = list.slice();
+                    const [moved] = arr.splice(from, 1);
+                    arr.splice(to, 0, moved);
+                    if (isHistory) {
+                        history = arr;
+                        saveList("osk_history", history);
+                    } else {
+                        quick = arr;
+                        saveList("osk_quick", quick);
+                    }
+                    render();
+                }
+            });
+            return item;
         }
 
         function show() {
