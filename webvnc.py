@@ -17,22 +17,27 @@ webvnc.py - BetterVNC 服务端（Windows 远程管理工具，单文件，自�
       pip install pillow
       Linux 虚拟桌面模式额外需要：Xvfb、openbox、xdotool、xterm
 
-运行：python webvnc.py [--port 6080] [--vnc-port 5900] [--token xxx] [--xdisplay :99]
+运行：python webvnc.py [--port 6080] [--vnc-port 5900] [--xdisplay :99]
       Linux 虚拟桌面：bash run_desktop.sh
 
-访问：https://<本机IP>:6080/vnc.html
+访问：https://<本机IP>:6080/vnc.html（访问根路径自动跳转）
+密码认证：密码在 run.py 控制台中设置（无密码/随机密码/指定密码），
+      管理员密码加密保存到 config.json；区分管理员与旁观者，
+      管理员仅允许一个同时登录，旁观者只能查看远程画面。
 """
 import argparse
 import base64
 import ctypes
 import errno
 import hashlib
+import hmac
 import io
 import json
 import locale
 import mimetypes
 import os
 import platform
+import secrets
 import shutil
 import socket
 import ssl
@@ -168,7 +173,8 @@ def save_theme(theme):
 
 
 def _load_config():
-    config = {"theme": "dark", "encoder": "zlib", "show_performance": False}
+    config = {"theme": "dark", "encoder": "zlib", "show_performance": False,
+              "device_name": socket.gethostname()}
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
             loaded = json.load(fh)
@@ -185,6 +191,65 @@ def _load_config():
 def _save_config(config):
     with open(CONFIG_FILE, "w", encoding="utf-8") as fh:
         json.dump(config, fh, ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# 密码认证（PBKDF2-HMAC-SHA256，密码哈希保存到 config.json，不存明文）
+# ---------------------------------------------------------------------------
+_PBKDF2_ITERATIONS = 240000
+_SESSION_TTL = 45  # 秒，会话心跳超时
+
+
+def hash_password(password, salt=None):
+    """返回 (salt_b64, hash_b64)。salt 不传时随机生成 16 字节。"""
+    if salt is None:
+        salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"),
+                             salt, _PBKDF2_ITERATIONS)
+    return base64.b64encode(salt).decode(), base64.b64encode(dk).decode()
+
+
+def verify_password(password, salt_b64, hash_b64):
+    if not salt_b64 or not hash_b64:
+        return False
+    try:
+        salt = base64.b64decode(salt_b64)
+        expected = base64.b64decode(hash_b64)
+    except Exception:
+        return False
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"),
+                             salt, _PBKDF2_ITERATIONS)
+    return hmac.compare_digest(dk, expected)
+
+
+def load_auth_config():
+    """读取认证配置：password_mode(none/random/custom) + 密码哈希 + 旁观者开关"""
+    config = _load_config()
+    auth = config.get("auth") or {}
+    mode = auth.get("password_mode", "none")
+    if mode not in ("none", "random", "custom"):
+        mode = "none"
+    return {
+        "password_mode": mode,
+        "password_salt": auth.get("password_salt", ""),
+        "password_hash": auth.get("password_hash", ""),
+        "observer_enabled": bool(auth.get("observer_enabled", True)),
+    }
+
+
+def save_auth_config(mode, password, observer_enabled=True):
+    """保存认证配置。mode 为 random/custom 时把密码加密后写入 config.json。"""
+    if mode not in ("none", "random", "custom"):
+        mode = "none"
+    config = _load_config()
+    auth = config.setdefault("auth", {})
+    auth["password_mode"] = mode
+    auth["observer_enabled"] = bool(observer_enabled)
+    if mode in ("random", "custom") and password:
+        salt, digest = hash_password(password)
+        auth["password_salt"] = salt
+        auth["password_hash"] = digest
+    _save_config(config)
 
 
 _ENCODERS = ("zlib", "hextile", "raw")
@@ -619,8 +684,6 @@ def restart_service():
             args += ["--vnc-host", str(a.vnc_host)]
         if a.vnc_port != 5900:
             args += ["--vnc-port", str(a.vnc_port)]
-        if a.token:
-            args += ["--token", a.token]
         if a.no_https:
             args += ["--no-https"]
         if a.xdisplay:
@@ -1783,8 +1846,31 @@ class WebHandler(BaseHTTPRequestHandler):
     directory = "web"  # 相对路径，main() 已切换到脚本目录
     vnc_host = "127.0.0.1"
     vnc_port = 5900
-    token = None
     vnc_server = None
+    sessions = {}  # token -> {role, page_id, ip, ua, last}
+    _auth_lock = threading.Lock()
+
+    # ---- 认证会话 ----
+    def _auth_session(self):
+        """验证 X-Auth-Token 会话，有效时返回会话并续期，否则返回 None"""
+        token = self.headers.get("X-Auth-Token", "")
+        if not token:
+            return None
+        with WebHandler._auth_lock:
+            sess = WebHandler.sessions.get(token)
+            if not sess:
+                return None
+            if time.time() - sess["last"] > _SESSION_TTL:
+                WebHandler.sessions.pop(token, None)
+                return None
+            sess["last"] = time.time()
+            return sess
+
+    def _require_admin(self):
+        if load_auth_config()["password_mode"] == "none":
+            return True  # 无密码模式：接口完全开放
+        sess = self._auth_session()
+        return bool(sess and sess["role"] == "admin")
 
     # ---- 辅助 ----
     def _send_json(self, obj, code=200):
@@ -1794,11 +1880,6 @@ class WebHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
-
-    def _check_token(self):
-        if not self.token:
-            return True
-        return self.headers.get("X-Token") == self.token
 
     def _read_body(self):
         length = int(self.headers.get("Content-Length") or 0)
@@ -1811,6 +1892,34 @@ class WebHandler(BaseHTTPRequestHandler):
         if self.headers.get("Upgrade", "").lower() == "websocket":
             return self._handle_websocket()
         path = self.path.split("?")[0]
+        if path == "/api/auth/config":
+            auth = load_auth_config()
+            return self._send_json({
+                "required": auth["password_mode"] != "none",
+                "password_mode": auth["password_mode"],
+                "observer_enabled": auth["observer_enabled"],
+                "device_name": _load_config().get("device_name", socket.gethostname()),
+            })
+        # 会话管理 API（无需认证，供 run.py 本地调用）
+        if path == "/api/sessions":
+            sessions = []
+            with WebHandler._auth_lock:
+                for token, sess in WebHandler.sessions.items():
+                    sessions.append({
+                        "token": token,
+                        "role": sess["role"],
+                        "ip": sess["ip"],
+                        "last": sess["last"],
+                    })
+            return self._send_json({"sessions": sessions})
+        # 统一鉴权：除公开接口外，所有 /api/ 路由需管理员登录
+        if path.startswith("/api/"):
+            public = (path.startswith("/api/auth/") or path in (
+                "/api/ping", "/api/theme", "/api/encoder",
+                "/api/performance", "/api/vnc/status",
+            ))
+            if not public and not self._require_admin():
+                return self._send_json({"error": "forbidden"}, 403)
         if path == "/api/info":
             return self._send_json(system_info())
         if path == "/api/fs/drives":
@@ -1866,13 +1975,83 @@ class WebHandler(BaseHTTPRequestHandler):
                 srv.disconnect_all()
             return self._send_json({"ok": True})
         if path in ("/", ""):
-            return self._serve_index()
-        if not self._check_token():
-            return self._send_json({"error": "forbidden"}, 403)
+            self.send_response(302)
+            self.send_header("Location", "/login.html")
+            self.end_headers()
+            return
         self._serve_static()
+
+    # ---- 认证 ----
+    def _api_auth_login(self):
+        try:
+            body = json.loads(self._read_body() or b"{}")
+        except ValueError:
+            return self._send_json({"error": "bad request"}, 400)
+        password = str(body.get("password") or "")
+        role = str(body.get("role") or "admin")
+        page_id = str(body.get("page_id") or "")
+        auth = load_auth_config()
+        if role not in ("admin", "observer"):
+            return self._send_json({"error": "invalid role"}, 400)
+        if role == "observer" and not auth["observer_enabled"]:
+            return self._send_json({"error": "observer disabled"}, 403)
+        if role == "admin" and auth["password_mode"] != "none":
+            if not verify_password(password, auth["password_salt"],
+                                   auth["password_hash"]):
+                return self._send_json({"error": "wrong password"}, 401)
+            with WebHandler._auth_lock:
+                for tok, sess in list(WebHandler.sessions.items()):
+                    if sess["role"] != "admin":
+                        continue
+                    if time.time() - sess["last"] > _SESSION_TTL:
+                        WebHandler.sessions.pop(tok, None)
+                        continue
+                    if sess["page_id"] != page_id:
+                        return self._send_json({"error": "admin already online"}, 409)
+        token = secrets.token_urlsafe(32)
+        with WebHandler._auth_lock:
+            WebHandler.sessions[token] = {
+                "role": role,
+                "page_id": page_id,
+                "ip": self.client_address[0] if self.client_address else "",
+                "ua": self.headers.get("User-Agent", ""),
+                "last": time.time(),
+            }
+        return self._send_json({"token": token, "role": role})
+
+    def _api_auth_logout(self):
+        token = self.headers.get("X-Auth-Token", "")
+        if token:
+            with WebHandler._auth_lock:
+                WebHandler.sessions.pop(token, None)
+        return self._send_json({"ok": True})
+
+    def _api_auth_heartbeat(self):
+        sess = self._auth_session()
+        if not sess:
+            return self._send_json({"error": "unauthorized"}, 401)
+        return self._send_json({"ok": True, "role": sess["role"]})
 
     def do_POST(self):
         path = self.path.split("?")[0]
+        if path == "/api/auth/login":
+            return self._api_auth_login()
+        if path == "/api/auth/logout":
+            return self._api_auth_logout()
+        if path == "/api/auth/heartbeat":
+            return self._api_auth_heartbeat()
+        # 会话踢出 API（无需认证，供 run.py 本地调用）
+        if path == "/api/sessions/kick":
+            try:
+                body = json.loads(self._read_body() or b"{}")
+                token = body.get("token", "")
+                with WebHandler._auth_lock:
+                    WebHandler.sessions.pop(token, None)
+                return self._send_json({"ok": True})
+            except (ValueError, KeyError):
+                return self._send_json({"error": "bad request"}, 400)
+        if not self._require_admin():
+            return self._send_json({"error": "forbidden"}, 403)
         if path == "/api/cmd":
             return self._api_cmd()
         if path == "/api/cmd/kill":
@@ -1990,7 +2169,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 "platform": sys.platform,
                 "windows": IS_WINDOWS,
                 "virtual": (not IS_WINDOWS) or (Image is None),
-                "auth": bool(self.token),
+                "auth": load_auth_config()["password_mode"] != "none",
+                "device_name": _load_config().get("device_name", socket.gethostname()),
             }
             inject = "<script>window.__WEBVNC__ = %s;</script>" % json.dumps(
                 cfg, ensure_ascii=False)
@@ -2039,13 +2219,13 @@ class WebHandler(BaseHTTPRequestHandler):
         return val[0] if val else default
 
     def _fs_list(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         path = self._get_query("path", None)
         return self._send_json(fs_list(path or ""))
 
     def _fs_download(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         import urllib.parse
         path = self._get_query("path", None)
@@ -2066,7 +2246,7 @@ class WebHandler(BaseHTTPRequestHandler):
             shutil.copyfileobj(fh, self.wfile)
 
     def _fs_zip(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         raw = self._get_query("paths", None)
         if not raw:
@@ -2094,7 +2274,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 pass
 
     def _fs_upload(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         dest = self._get_query("path", None)
         ctype = self.headers.get("Content-Type", "")
@@ -2117,7 +2297,7 @@ class WebHandler(BaseHTTPRequestHandler):
         return self._send_json({"saved": saved})
 
     def _fs_mkdir(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         data = json.loads(self._read_body() or b"{}")
         path = data.get("path", "")
@@ -2130,7 +2310,7 @@ class WebHandler(BaseHTTPRequestHandler):
             return self._send_json({"error": str(exc)}, 500)
 
     def _fs_rename(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         data = json.loads(self._read_body() or b"{}")
         path, new_name = data.get("path", ""), data.get("new_name", "")
@@ -2145,7 +2325,7 @@ class WebHandler(BaseHTTPRequestHandler):
             return self._send_json({"error": str(exc)}, 500)
 
     def _fs_move(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         data = json.loads(self._read_body() or b"{}")
         paths = data.get("paths", [])
@@ -2164,7 +2344,7 @@ class WebHandler(BaseHTTPRequestHandler):
         return self._send_json({"ok": True, "moved": moved})
 
     def _fs_delete(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         try:
             data = json.loads(self._read_body() or b"{}")
@@ -2191,7 +2371,7 @@ class WebHandler(BaseHTTPRequestHandler):
 
     # ---- 命令执行（作业 + 轮询，避免长命令挂起连接） ----
     def _api_cmd(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         try:
             data = json.loads(self._read_body() or b"{}")
@@ -2207,7 +2387,7 @@ class WebHandler(BaseHTTPRequestHandler):
         return self._send_json({"job": job.id})
 
     def _api_cmd_result(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         job_id = self._get_query("id", "")
         try:
@@ -2227,7 +2407,7 @@ class WebHandler(BaseHTTPRequestHandler):
         })
 
     def _api_cmd_kill(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         try:
             data = json.loads(self._read_body() or b"{}")
@@ -2243,7 +2423,7 @@ class WebHandler(BaseHTTPRequestHandler):
 
     # ---- 服务端日志 ----
     def _api_log_tail(self):
-        if not self._check_token():
+        if not self._require_admin():
             return self._send_json({"error": "forbidden"}, 403)
         try:
             start = int(self._get_query("start", "-1"))
@@ -2287,6 +2467,26 @@ class WebHandler(BaseHTTPRequestHandler):
         if not key:
             self.send_error(400)
             return
+        # 认证：URL 携带会话令牌与角色，须与登录会话一致
+        import urllib.parse as _up
+        qs = _up.parse_qs(_up.urlparse(self.path).query)
+        token = (qs.get("auth") or [""])[0]
+        role = (qs.get("role") or [""])[0]
+        auth_cfg = load_auth_config()
+        if auth_cfg["password_mode"] == "none":
+            # 无密码模式：无需令牌，按 URL 角色区分管理员/旁观者
+            role = "observer" if role == "observer" else "admin"
+            view_only = (role == "observer")
+        else:
+            with WebHandler._auth_lock:
+                sess = WebHandler.sessions.get(token)
+                if not sess or sess["role"] != role:
+                    return self._send_json({"error": "unauthorized"}, 401)
+                if time.time() - sess["last"] > _SESSION_TTL:
+                    WebHandler.sessions.pop(token, None)
+                    return self._send_json({"error": "unauthorized"}, 401)
+                sess["last"] = time.time()
+            view_only = (role == "observer")
         accept = base64.b64encode(
             hashlib.sha1((key + WS_GUID).encode()).digest()).decode()
         self.send_response_only(101)
@@ -2325,6 +2525,11 @@ class WebHandler(BaseHTTPRequestHandler):
             while not done.is_set():
                 opcode, payload = recv_frame(self.connection)
                 if opcode in (0x1, 0x2, 0x0):
+                    if view_only and payload:
+                        # 旁观者：仅放行像素格式/编码/画面请求，丢弃键鼠剪贴板输入
+                        msg_type = payload[0]
+                        if msg_type in (4, 5, 6):
+                            continue
                     vnc.sendall(payload)
                 elif opcode == 0x8:
                     try:
@@ -2402,7 +2607,6 @@ def main():
     ap.add_argument("--port", type=int, default=6080, help="HTTPS 端口（默认 6080）")
     ap.add_argument("--vnc-host", default="0.0.0.0", help="VNC Server 监听地址")
     ap.add_argument("--vnc-port", type=int, default=5900, help="VNC 端口（默认 5900）")
-    ap.add_argument("--token", default="", help="访问令牌（可选，保护 API）")
     ap.add_argument("--no-https", action="store_true", help="使用 HTTP 而非 HTTPS")
     ap.add_argument("--xdisplay", default="",
                     help="Linux 虚拟桌面 X display（如 :99），抓取真实 X 桌面并模拟输入")
@@ -2447,7 +2651,6 @@ def main():
 
     WebHandler.vnc_host = "127.0.0.1"
     WebHandler.vnc_port = args.vnc_port
-    WebHandler.token = args.token or None
 
     httpd = ThreadingHTTPServer((args.host, args.port), WebHandler)
     if not args.no_https:
@@ -2463,10 +2666,6 @@ def main():
 
     log(f"Web 服务已启动: {scheme}://{args.host}:{args.port}/vnc.html")
     log(f"文件管理/终端 API 前缀: {scheme}://{args.host}:{args.port}/api/")
-    if args.token:
-        log("已启用访问令牌保护")
-    else:
-        log("警告: 未启用访问令牌，服务对外开放请务必设置 --token 并注意安全")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

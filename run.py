@@ -200,7 +200,7 @@ class App:
         ttk.Label(top, text="BetterVNC", font=("Segoe UI", 15, "bold")).pack(side=tk.LEFT, padx=(0, 24))
         self.nav_buttons = {}
         for key, label in (("home", "首页"), ("security", "安全"),
-                           ("environment", "环境"),
+                           ("users", "用户管理"), ("environment", "环境"),
                            ("terminal", "命令行"), ("config", "配置")):
             button = ttk.Button(top, text=label, width=10,
                                 command=lambda page=key: self.show_page(page))
@@ -212,6 +212,7 @@ class App:
         self.pages = {}
         for key, builder in (("home", self._build_home),
                              ("security", self._build_security),
+                             ("users", self._build_users),
                              ("environment", self._build_environment),
                              ("terminal", self._build_terminal),
                              ("config", self._build_config)):
@@ -229,6 +230,8 @@ class App:
             self.refresh_ips()
         elif name == "security":
             self.refresh_auth_status()
+        elif name == "users":
+            self.refresh_users()
         elif name == "config":
             self.refresh_config_files()
 
@@ -341,6 +344,166 @@ class App:
         else:
             save_auth_config(mode, "", observer)
             self.auth_status.configure(text="已保存：无密码模式，访问无需登录")
+
+    def _build_users(self, parent):
+        """用户管理页面：显示在线用户、支持强制退登和二级密码紧急接管"""
+        # 在线用户列表
+        users_box = ttk.Labelframe(parent, text="在线用户")
+        users_box.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
+        
+        # 列表框架
+        list_frame = ttk.Frame(users_box, padding=8)
+        list_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 创建表格
+        columns = ("token", "role", "ip", "last_active")
+        self.user_tree = ttk.Treeview(list_frame, columns=columns, show="headings", height=10)
+        self.user_tree.heading("token", text="会话令牌")
+        self.user_tree.heading("role", text="角色")
+        self.user_tree.heading("ip", text="IP 地址")
+        self.user_tree.heading("last_active", text="最后活跃")
+        
+        self.user_tree.column("token", width=120)
+        self.user_tree.column("role", width=80)
+        self.user_tree.column("ip", width=120)
+        self.user_tree.column("last_active", width=150)
+        
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.user_tree.yview)
+        self.user_tree.configure(yscrollcommand=scrollbar.set)
+        self.user_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 操作按钮
+        btn_row = ttk.Frame(parent)
+        btn_row.pack(fill=tk.X, pady=(0, 8))
+        ttk.Button(btn_row, text="刷新列表", command=self.refresh_users).pack(side=tk.LEFT, padx=3)
+        ttk.Button(btn_row, text="踢出选中用户", command=self.kick_selected_user).pack(side=tk.LEFT, padx=3)
+        ttk.Button(btn_row, text="踢出所有用户", command=self.kick_all_users).pack(side=tk.LEFT, padx=3)
+        
+        # 二级密码紧急接管
+        emergency_box = ttk.Labelframe(parent, text="紧急接管（二级密码）")
+        emergency_box.pack(fill=tk.X, pady=(0, 8))
+        
+        ttk.Label(emergency_box, text="当管理员账号被恶意获取时，使用二级密码强制退出所有会话并修改密码：",
+                  foreground="#b3261e", wraplength=700).pack(anchor=tk.W, padx=8, pady=(8, 4))
+        
+        row = ttk.Frame(emergency_box, padding=8)
+        row.pack(fill=tk.X)
+        ttk.Label(row, text="二级密码:").pack(side=tk.LEFT, padx=(0, 4))
+        self.emergency_pwd = ttk.Entry(row, show="*", width=20)
+        self.emergency_pwd.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(row, text="紧急接管", command=self.emergency_takeover).pack(side=tk.LEFT)
+        
+        self.emergency_status = ttk.Label(emergency_box, text="", foreground="#666", wraplength=700)
+        self.emergency_status.pack(anchor=tk.W, padx=8, pady=(0, 8))
+
+    def refresh_users(self):
+        """刷新在线用户列表"""
+        for item in self.user_tree.get_children():
+            self.user_tree.delete(item)
+        
+        if not self.proc or self.proc.poll() is not None:
+            return
+        
+        # 通过 API 获取在线用户（需要服务端支持）
+        try:
+            import urllib.request
+            import json
+            web_port = self.web_port.get().strip() or "6080"
+            url = f"http://127.0.0.1:{web_port}/api/sessions"
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=2) as response:
+                data = json.loads(response.read().decode())
+                sessions = data.get("sessions", [])
+                for sess in sessions:
+                    token_short = sess.get("token", "")[:16] + "..."
+                    role = sess.get("role", "unknown")
+                    ip = sess.get("ip", "")
+                    last = sess.get("last", 0)
+                    import datetime
+                    last_str = datetime.datetime.fromtimestamp(last).strftime("%Y-%m-%d %H:%M:%S")
+                    self.user_tree.insert("", tk.END, values=(token_short, role, ip, last_str),
+                                          tags=(sess.get("token", ""),))
+        except Exception as e:
+            pass
+    
+    def kick_selected_user(self):
+        """踢出选中的用户"""
+        selection = self.user_tree.selection()
+        if not selection:
+            messagebox.showwarning("用户管理", "请先选择要踢出的用户")
+            return
+        
+        if not messagebox.askyesno("确认", "确定要踢出选中的用户吗？"):
+            return
+        
+        for item in selection:
+            tags = self.user_tree.item(item, "tags")
+            if tags:
+                self._kick_user_by_token(tags[0])
+        
+        self.refresh_users()
+    
+    def kick_all_users(self):
+        """踢出所有用户"""
+        if not messagebox.askyesno("确认", "确定要踢出所有在线用户吗？"):
+            return
+        
+        for item in self.user_tree.get_children():
+            tags = self.user_tree.item(item, "tags")
+            if tags:
+                self._kick_user_by_token(tags[0])
+        
+        self.refresh_users()
+    
+    def _kick_user_by_token(self, token):
+        """通过 token 踢出用户"""
+        try:
+            import urllib.request
+            import json
+            web_port = self.web_port.get().strip() or "6080"
+            url = f"http://127.0.0.1:{web_port}/api/sessions/kick"
+            data = json.dumps({"token": token}).encode()
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"},
+                                        method="POST")
+            urllib.request.urlopen(req, timeout=2)
+        except Exception:
+            pass
+    
+    def emergency_takeover(self):
+        """二级密码紧急接管"""
+        pwd = self.emergency_pwd.get().strip()
+        SECONDARY_PASSWORD = "Nmk__123"  # 硬编码的二级密码
+        
+        if pwd != SECONDARY_PASSWORD:
+            self.emergency_status.configure(text="二级密码错误", foreground="#b3261e")
+            return
+        
+        if not messagebox.askyesno("紧急接管",
+                                   "将执行以下操作：\n"
+                                   "1. 强制退出所有在线用户（包括管理员和旁观者）\n"
+                                   "2. 生成新的随机密码\n\n"
+                                   "确定继续吗？"):
+            return
+        
+        # 踢出所有用户
+        for item in self.user_tree.get_children():
+            tags = self.user_tree.item(item, "tags")
+            if tags:
+                self._kick_user_by_token(tags[0])
+        
+        # 生成新密码并保存
+        new_password = secrets.token_urlsafe(12)
+        auth = load_auth_config()
+        save_auth_config("custom", new_password, auth["observer_enabled"])
+        
+        self.emergency_status.configure(
+            text=f"接管成功！新密码：{new_password}\n请立即记录此密码，然后可在"安全"页面修改。",
+            foreground="#16733b")
+        self.emergency_pwd.delete(0, tk.END)
+        
+        # 刷新用户列表
+        self.root.after(500, self.refresh_users)
 
     def _build_environment(self, parent):
         python_box = ttk.Labelframe(parent, text="Python 解释器")
