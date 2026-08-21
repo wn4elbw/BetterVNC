@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh_CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebVNC 旁观者</title>
+    <style>
+        :root {
+            --bg: #14161a;
+            --panel: #2b2e33;
+            --fg: #ffffff;
+            --muted: #b6bac2;
+            --accent: #636a75;
+            --border: #4a4e56;
+            --success: #56d364;
+            --warn: #e3b341;
+            --err: #e5534b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .topbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 12px;
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            height: 40px;
+            z-index: 10;
+        }
+        .topbar-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--fg);
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background .2s;
+            white-space: nowrap;
+        }
+        .topbar-btn:hover { background: var(--accent); }
+        .topbar-device {
+            font-size: 12px;
+            color: var(--muted);
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .topbar-spacer { flex: 1; }
+        .topbar-stat {
+            font-size: 11px;
+            color: var(--muted);
+            white-space: nowrap;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1.3;
+        }
+        .topbar-stat .stat-name {
+            font-size: 10px;
+            color: var(--accent);
+        }
+        .topbar-stat .stat-val {
+            font-weight: 600;
+            color: var(--fg);
+        }
+        .topbar-stat .stat-device {
+            font-size: 9px;
+            color: var(--muted);
+        }
+        .vnc-area {
+            flex: 1;
+            position: relative;
+            background: #000;
+            overflow: hidden;
+        }
+        .vnc-area > div {
+            width: 100%;
+            height: 100%;
+        }
+        .vnc-area canvas {
+            display: block;
+        }
+        .status-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(20,22,26,0.85);
+            z-index: 5;
+            flex-direction: column;
+            gap: 10px;
+            transition: opacity .3s;
+        }
+        .status-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .status-text {
+            font-size: 14px;
+            color: var(--muted);
+        }
+        .status-spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .status-back {
+            display: none;
+            font-size: 12px;
+            color: var(--err);
+            margin-top: 8px;
+        }
+        .status-back.show { display: block; }
+        .fullscreen .topbar { display: none; }
+    </style>
+</head>
+<body>
+    <div class="topbar" id="topbar">
+        <button class="topbar-btn" id="btn_back" title="返回登录页">返回</button>
+        <span class="topbar-spacer"></span>
+        <select id="observer_zoom_select"
+                style="background:#2b2e33;color:#ffffff;border:1px solid #4a4e56;border-radius:4px;padding:2px 6px;font-size:11px;font-family:inherit;cursor:pointer">
+            <option value="off">原始大小</option>
+            <option value="scale">适应窗口</option>
+            <option value="remote">远程缩放</option>
+        </select>
+        <span class="topbar-stat" id="stat_fps">
+            <span class="stat-name">帧率</span>
+            <span class="stat-val">--</span>
+        </span>
+        <span class="topbar-stat" id="stat_bandwidth">
+            <span class="stat-name">带宽</span>
+            <span class="stat-val">--</span>
+        </span>
+        <span class="topbar-stat" id="stat_uptime">
+            <span class="stat-name">时长</span>
+            <span class="stat-val">--</span>
+        </span>
+        <span class="topbar-stat" id="stat_frames">
+            <span class="stat-name">帧数</span>
+            <span class="stat-val">--</span>
+        </span>
+    </div>
+
+    <div class="vnc-area" id="vnc_area">
+        <div id="vnc_container"></div>
+        <div class="status-overlay" id="status_overlay">
+            <div class="status-spinner"></div>
+            <div class="status-text" id="status_text">正在连接...</div>
+            <div class="status-back" id="status_back">
+                <button class="topbar-btn" onclick="window.location.href='/login.html'">返回登录页</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import RFB from './core/rfb.js';
+
+        const $ = (id) => document.getElementById(id);
+
+        const params = new URLSearchParams(location.search);
+        const token = params.get('auth') || '';
+        const role = 'observer';
+
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = `${proto}://${location.host}/websockify?auth=${encodeURIComponent(token)}&role=${role}`;
+
+        let connectTime = 0;
+        let frameCount = 0;
+        let bytesReceived = 0;
+        let lastFpsTime = 0;
+        let lastFpsFrames = 0;
+        let lastBwTime = 0;
+        let lastBwBytes = 0;
+        let fpsInterval = null;
+
+        function updateStats() {
+            const now = Date.now();
+            if (lastFpsTime > 0) {
+                const fpsElapsed = (now - lastFpsTime) / 1000;
+                const fps = fpsElapsed > 0.5 ? Math.round((frameCount - lastFpsFrames) / fpsElapsed) : 0;
+                $('stat_fps').querySelector('.stat-val').textContent = fps + ' FPS';
+            }
+            lastFpsTime = now;
+            lastFpsFrames = frameCount;
+
+            if (lastBwTime > 0) {
+                const bwElapsed = (now - lastBwTime) / 1000;
+                const bw = bwElapsed > 0.5 ? (bytesReceived - lastBwBytes) / bwElapsed : 0;
+                if (bw >= 1048576) {
+                    $('stat_bandwidth').querySelector('.stat-val').textContent = (bw / 1048576).toFixed(1) + ' MB/s';
+                } else if (bw >= 1024) {
+                    $('stat_bandwidth').querySelector('.stat-val').textContent = (bw / 1024).toFixed(0) + ' KB/s';
+                } else {
+                    $('stat_bandwidth').querySelector('.stat-val').textContent = bw.toFixed(0) + ' B/s';
+                }
+            }
+            lastBwTime = now;
+            lastBwBytes = bytesReceived;
+
+            if (connectTime > 0) {
+                const elapsed = Math.floor((now - connectTime) / 1000);
+                const h = Math.floor(elapsed / 3600);
+                const m = Math.floor((elapsed % 3600) / 60);
+                const s = elapsed % 60;
+                $('stat_uptime').querySelector('.stat-val').textContent =
+                    h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` :
+                    `${m}:${String(s).padStart(2,'0')}`;
+            }
+
+            $('stat_frames').querySelector('.stat-val').textContent = frameCount.toLocaleString();
+        }
+
+        function showStatus(text, showBack) {
+            $('status_text').textContent = text;
+            $('status_overlay').classList.remove('hidden');
+            if (showBack) {
+                $('status_back').classList.add('show');
+            } else {
+                $('status_back').classList.remove('show');
+            }
+        }
+
+        function hideStatus() {
+            $('status_overlay').classList.add('hidden');
+        }
+
+        function connect() {
+            if (!token) {
+                showStatus('缺少认证令牌，请从登录页进入', true);
+                return;
+            }
+
+            showStatus('正在连接远程桌面...');
+
+            try {
+                const rfb = new RFB($('vnc_container'), wsUrl, {
+                    credentials: {},
+                    shared: true,
+                });
+                rfb.viewOnly = true;
+                rfb.scaleViewport = true; // 默认适应窗口
+
+                rfb.addEventListener('connect', () => {
+                    connectTime = Date.now();
+                    hideStatus();
+
+                    if (rfb._framebufferUpdate) {
+                        const origFBU = rfb._framebufferUpdate.bind(rfb);
+                        rfb._framebufferUpdate = function () {
+                            frameCount++;
+                            return origFBU.apply(rfb, arguments);
+                        };
+                    }
+
+                    const ws = rfb._sock && rfb._sock._websocket;
+                    if (ws && ws.onmessage) {
+                        const origOnMsg = ws.onmessage;
+                        ws.onmessage = function (ev) {
+                            if (ev.data) {
+                                if (typeof ev.data === 'string') {
+                                    bytesReceived += ev.data.length;
+                                } else if (ev.data.byteLength !== undefined) {
+                                    bytesReceived += ev.data.byteLength;
+                                } else if (ev.data.size !== undefined) {
+                                    bytesReceived += ev.data.size;
+                                }
+                            }
+                            origOnMsg.call(ws, ev);
+                        };
+                    }
+
+                    fpsInterval = setInterval(updateStats, 1000);
+                });
+
+                rfb.addEventListener('disconnect', (ev) => {
+                    clearInterval(fpsInterval);
+                    const detail = ev.detail || {};
+                    const reason = detail.clean ?
+                        '连接已断开' :
+                        '连接异常断开';
+                    showStatus(reason, true);
+                });
+
+                rfb.addEventListener('credentialsrequired', () => {
+                    rfb.sendCredentials({});
+                });
+
+                rfb.addEventListener('bell', () => {
+                    const bell = document.getElementById('webvnc_bell');
+                    if (bell) bell.play().catch(() => {});
+                });
+
+                window._rfb = rfb;
+            } catch (err) {
+                showStatus('连接失败: ' + err.message, true);
+            }
+        }
+
+        const zoomSelect = $('observer_zoom_select');
+        if (zoomSelect) {
+            zoomSelect.value = 'scale'; // 默认适应窗口
+            zoomSelect.addEventListener('change', () => {
+                const rfb = window._rfb;
+                if (!rfb) return;
+                rfb.scaleViewport = (zoomSelect.value === 'scale');
+                rfb.resizeSession = (zoomSelect.value === 'remote');
+            });
+        }
+
+        $('btn_back').addEventListener('click', () => {
+            window.location.href = '/login.html';
+        });
+
+        connect();
+    </script>
+</body>
+</html>

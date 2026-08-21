@@ -15,6 +15,10 @@ import sys
 import threading
 import time
 import webbrowser
+import base64
+import hashlib
+import hmac
+import secrets
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 EMBED_DIR = os.path.join(BASE, "python")
@@ -79,6 +83,58 @@ def ensure_python_packages():
         print(f"内置 Python 环境准备失败: {exc}", file=sys.stderr)
 
 
+_PBKDF2_ITERATIONS = 240000
+
+
+def _hash_password(password, salt=None):
+    """返回 (salt_b64, hash_b64)，与 webvnc.py 认证逻辑一致"""
+    if salt is None:
+        salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"),
+                             salt, _PBKDF2_ITERATIONS)
+    return base64.b64encode(salt).decode(), base64.b64encode(dk).decode()
+
+
+def load_auth_config():
+    path = os.path.join(BASE, "config.json")
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            config = json.load(fh)
+    except (OSError, ValueError):
+        config = {}
+    auth = config.get("auth") or {}
+    mode = auth.get("password_mode", "none")
+    if mode not in ("none", "random", "custom"):
+        mode = "none"
+    return {
+        "password_mode": mode,
+        "password_salt": auth.get("password_salt", ""),
+        "password_hash": auth.get("password_hash", ""),
+        "observer_enabled": bool(auth.get("observer_enabled", True)),
+    }
+
+
+def save_auth_config(mode, password="", observer_enabled=True):
+    path = os.path.join(BASE, "config.json")
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            config = json.load(fh)
+    except (OSError, ValueError):
+        config = {}
+    if not isinstance(config, dict):
+        config = {}
+    auth = config.setdefault("auth", {})
+    auth["password_mode"] = mode
+    auth["observer_enabled"] = bool(observer_enabled)
+    if mode in ("random", "custom") and password:
+        salt, digest = _hash_password(password)
+        auth["password_salt"] = salt
+        auth["password_hash"] = digest
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(config, fh, ensure_ascii=False, indent=2)
+    return config
+
+
 def local_ips():
     """获取本机全部 IPv4 地址（去重，含回环地址置底）"""
     ips = set()
@@ -121,7 +177,15 @@ class App:
         self.config_path = ""
 
         root.title("BetterVNC 控制台")
-        root.geometry("1040x720")
+        # 窗口大小：屏幕的 60% 宽 × 70% 高
+        screen_w = root.winfo_screenwidth()
+        screen_h = root.winfo_screenheight()
+        win_w = int(screen_w * 0.6)
+        win_h = int(screen_h * 0.7)
+        # 居中显示
+        x = (screen_w - win_w) // 2
+        y = (screen_h - win_h) // 2
+        root.geometry(f"{win_w}x{win_h}+{x}+{y}")
         root.minsize(900, 620)
         self._build_shell()
         self.show_page("home")
@@ -135,7 +199,8 @@ class App:
         top.pack(fill=tk.X)
         ttk.Label(top, text="BetterVNC", font=("Segoe UI", 15, "bold")).pack(side=tk.LEFT, padx=(0, 24))
         self.nav_buttons = {}
-        for key, label in (("home", "首页"), ("environment", "环境"),
+        for key, label in (("home", "首页"), ("security", "安全"),
+                           ("environment", "环境"),
                            ("terminal", "命令行"), ("config", "配置")):
             button = ttk.Button(top, text=label, width=10,
                                 command=lambda page=key: self.show_page(page))
@@ -146,6 +211,7 @@ class App:
         self.body.pack(fill=tk.BOTH, expand=True)
         self.pages = {}
         for key, builder in (("home", self._build_home),
+                             ("security", self._build_security),
                              ("environment", self._build_environment),
                              ("terminal", self._build_terminal),
                              ("config", self._build_config)):
@@ -161,6 +227,8 @@ class App:
             button.configure(state=tk.DISABLED if key == name else tk.NORMAL)
         if name == "home":
             self.refresh_ips()
+        elif name == "security":
+            self.refresh_auth_status()
         elif name == "config":
             self.refresh_config_files()
 
@@ -173,7 +241,6 @@ class App:
         self.status_label.pack(side=tk.LEFT, padx=(0, 18))
         self.web_port = self._labeled_entry(row, "Web 端口", "6080", 7)
         self.vnc_port = self._labeled_entry(row, "VNC 端口", "5900", 7)
-        self.token = self._labeled_entry(row, "访问令牌", "", 14, show="*")
         self.btn_start = ttk.Button(row, text="启动", command=self.start_server)
         self.btn_start.pack(side=tk.LEFT, padx=(10, 4))
         self.btn_stop = ttk.Button(row, text="停止", command=self.stop_server, state=tk.DISABLED)
@@ -189,6 +256,91 @@ class App:
         self.log_text = scrolledtext.ScrolledText(
             logs, state=tk.DISABLED, font=("Consolas", 10), wrap=tk.WORD)
         self.log_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+    def _build_security(self, parent):
+        mode_box = ttk.Labelframe(parent, text="访问密码")
+        mode_box.pack(fill=tk.X, pady=(0, 8))
+        self.auth_mode = tk.StringVar(value="none")
+        self.auth_observer = tk.BooleanVar(value=True)
+        self.auth_show_var = tk.BooleanVar(value=False)
+        for value, label in (("none", "无密码（访问无需登录）"),
+                             ("random", "随机密码（每次启动时生成，仅在控制台日志显示）"),
+                             ("custom", "指定密码（自定义密码并加密保存）")):
+            rb = ttk.Radiobutton(mode_box, text=label, value=value,
+                                 variable=self.auth_mode)
+            rb.pack(anchor=tk.W, padx=8, pady=2)
+        row = ttk.Frame(mode_box, padding=(8, 4))
+        row.pack(fill=tk.X)
+        ttk.Label(row, text="密码").pack(side=tk.LEFT, padx=(0, 4))
+        self.auth_password = ttk.Entry(row, show="*", width=24)
+        self.auth_password.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
+        ttk.Checkbutton(row, text="显示", variable=self.auth_show_var,
+                        command=self._toggle_auth_show).pack(side=tk.LEFT)
+
+        observer_box = ttk.Labelframe(parent, text="旁观者")
+        observer_box.pack(fill=tk.X, pady=(0, 8))
+        ttk.Checkbutton(observer_box, text="允许旁观者以只读方式查看远程画面（可多人同时查看）",
+                        variable=self.auth_observer).pack(anchor=tk.W, padx=8, pady=6)
+
+        btn_row = ttk.Frame(parent)
+        btn_row.pack(fill=tk.X, pady=(0, 8))
+        ttk.Button(btn_row, text="保存安全设置", command=self.save_auth).pack(side=tk.LEFT)
+        ttk.Button(btn_row, text="随机生成密码", command=self.gen_auth_password).pack(side=tk.LEFT, padx=8)
+        self.auth_status = ttk.Label(parent, text="", foreground="#16733b", wraplength=820)
+        self.auth_status.pack(anchor=tk.W, pady=(0, 8))
+        hint = ttk.Label(parent, wraplength=820,
+                         text="说明：指定/随机密码会以 PBKDF2（加盐）加密后保存到 config.json，不保存明文。"
+                              "启用密码后访问 http://<本机IP>:6080 需先登录；"
+                              "管理员同一时间仅允许一个同时登录，旁观者可同时多个。",
+                         foreground="#666")
+        hint.pack(anchor=tk.W)
+        self.refresh_auth_status()
+
+    def _toggle_auth_show(self):
+        self.auth_password.configure(show="" if self.auth_show_var.get() else "*")
+
+    def refresh_auth_status(self):
+        auth = load_auth_config()
+        self.auth_mode.set(auth["password_mode"])
+        self.auth_observer.set(auth["observer_enabled"])
+        if auth["password_mode"] == "none":
+            text = "当前：无密码模式，访问无需登录"
+        elif auth["password_mode"] == "random":
+            text = "当前：随机密码模式（密码将在每次启动时生成并显示在日志中）"
+        else:
+            text = "当前：指定密码模式（密码已加密保存到 config.json）"
+        self.auth_status.configure(text=text, foreground="#16733b")
+
+    def gen_auth_password(self):
+        pwd = secrets.token_urlsafe(9)
+        self.auth_password.delete(0, tk.END)
+        self.auth_password.insert(0, pwd)
+        self.auth_show_var.set(True)
+        self.auth_password.configure(show="")
+        self.auth_status.configure(text=f"已生成随机密码：{pwd}（点击“保存安全设置”后生效）",
+                                   foreground="#b3261e")
+
+    def save_auth(self):
+        mode = self.auth_mode.get()
+        if mode not in ("none", "random", "custom"):
+            messagebox.showerror("安全", "无效的密码模式")
+            return
+        observer = self.auth_observer.get()
+        if mode == "custom":
+            password = self.auth_password.get().strip()
+            if not password:
+                messagebox.showerror("安全", "请填写指定密码")
+                return
+            save_auth_config(mode, password, observer)
+            self.auth_status.configure(text="已保存：指定密码模式（密码已加密，不含明文）")
+        elif mode == "random":
+            # 随机密码模式：密码在每次启动时生成，此处只保存模式
+            save_auth_config(mode, "", observer)
+            self.auth_password.delete(0, tk.END)
+            self.auth_status.configure(text="已保存：随机密码模式（密码将在每次启动时生成并显示在日志中）")
+        else:
+            save_auth_config(mode, "", observer)
+            self.auth_status.configure(text="已保存：无密码模式，访问无需登录")
 
     def _build_environment(self, parent):
         python_box = ttk.Labelframe(parent, text="Python 解释器")
@@ -442,11 +594,18 @@ class App:
         except ValueError:
             messagebox.showerror("端口", "Web 和 VNC 端口必须是 1 至 65535 的整数")
             return
-        token = self.token.get().strip()
+        
+        # 如果是随机密码模式，每次启动生成新密码
+        auth = load_auth_config()
+        runtime_password = None
+        if auth["password_mode"] == "random":
+            runtime_password = secrets.token_urlsafe(12)
+            save_auth_config("random", runtime_password, auth["observer_enabled"])
+            self._append_log(f"[随机密码] {runtime_password}")
+            self._append_log("[提示] 此密码仅在本次启动有效，重启后将重新生成")
+        
         cmd = [self.selected_python(), "-u", "webvnc.py",
                "--port", web, "--vnc-port", vnc]
-        if token:
-            cmd += ["--token", token]
         self._append_log(f"$ {' '.join(cmd)}")
         try:
             self.proc = subprocess.Popen(

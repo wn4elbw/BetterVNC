@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh_CN" class="noVNC_loading">
+<html lang="zh_CN" class="webvnc_loading">
 <head>
 
     <!--
@@ -77,87 +77,104 @@
         // 暴露给普通脚本（webvnc.js）用于连接/断开控制
         window.UI = UI;
 
-        UI.start({ settings: { defaults: defaults,
-                               mandatory: mandatory } });
+        // 延迟到登录成功后启动 webvnc（webvnc.js 认证完成后调用）
+        window.__startVnc = () => {
+            if (!window.__WEBVNC_START_PROMISE) {
+                window.__WEBVNC_START_PROMISE = UI.start({
+                    settings: { defaults: defaults, mandatory: mandatory }
+                });
+            }
+            return window.__WEBVNC_START_PROMISE;
+        };
     </script>
 </head>
 
-<body>
+<body style="display:flex;flex-direction:column;height:100vh;overflow:hidden;margin:0;background:#14161a">
+
+    <!-- 管理员顶栏 -->
+    <div id="admin_topbar"
+         style="display:flex;align-items:center;gap:12px;padding:6px 12px;background:#2b2e33;border-bottom:1px solid #4a4e56;flex-shrink:0;height:40px;z-index:100;font-family:'Segoe UI',Arial,sans-serif"
+         data-th="background:bg;border-color:border">
+        <button id="admin_btn_back" title="返回登录页"
+                style="background:transparent;border:1px solid #4a4e56;color:#ffffff;border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap"
+                data-th="border-color:border;color:fg">返回</button>
+        <span style="flex:1"></span>
+    </div>
 
     <!-- 页面加载蒙版：主题加载完成前覆盖全屏 -->
     <div id="app_loading_mask"
          style="position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px">
         <span style="color:#ffffff;font-size:16px;font-family:'Segoe UI',Arial,sans-serif;letter-spacing:1px">加载中...</span>
-        <span class="noVNC_spinner" style="opacity:0.8"></span>
+        <span class="webvnc_spinner" style="opacity:0.8"></span>
     </div>
 
-    <div id="noVNC_fallback_error" class="noVNC_center">
+    <div id="webvnc_fallback_error" class="webvnc_center">
         <div>
-            <div>noVNC encountered an error:</div>
+            <div>webvnc encountered an error:</div>
             <br>
-            <div id="noVNC_fallback_errormsg"></div>
+            <div id="webvnc_fallback_errormsg"></div>
         </div>
     </div>
 
     <!-- Status dialog -->
-    <div id="noVNC_status" style="display:none !important"></div>
+    <div id="webvnc_status" style="display:none !important"></div>
 
     <!-- Server key verification dialog -->
-    <div class="noVNC_center noVNC_connect_layer">
-    <div id="noVNC_verify_server_dlg" class="noVNC_panel"><form>
-        <div class="noVNC_heading">
+    <div class="webvnc_center webvnc_connect_layer">
+    <div id="webvnc_verify_server_dlg" class="webvnc_panel"><form>
+        <div class="webvnc_heading">
             Server identity
         </div>
         <div>
             The server has provided the following identifying information:
         </div>
-        <div id="noVNC_fingerprint_block">
+        <div id="webvnc_fingerprint_block">
             Fingerprint:
-            <span id="noVNC_fingerprint"></span>
+            <span id="webvnc_fingerprint"></span>
         </div>
         <div>
             Please verify that the information is correct and press
             "Approve". Otherwise press "Reject".
         </div>
         <div class="button_row">
-            <input id="noVNC_approve_server_button" type="submit" value="Approve">
-            <input id="noVNC_reject_server_button" type="button" value="Reject">
+            <input id="webvnc_approve_server_button" type="submit" value="Approve">
+            <input id="webvnc_reject_server_button" type="button" value="Reject">
         </div>
     </form></div>
     </div>
 
     <!-- Password dialog -->
-    <div class="noVNC_center noVNC_connect_layer">
-    <div id="noVNC_credentials_dlg" class="noVNC_panel"><form>
-        <div class="noVNC_heading">
+    <div class="webvnc_center webvnc_connect_layer">
+    <div id="webvnc_credentials_dlg" class="webvnc_panel"><form>
+        <div class="webvnc_heading">
             Credentials
         </div>
-        <div id="noVNC_username_block">
-            <label for="noVNC_username_input">Username:</label>
-            <input id="noVNC_username_input">
+        <div id="webvnc_username_block">
+            <label for="webvnc_username_input">Username:</label>
+            <input id="webvnc_username_input">
         </div>
-        <div id="noVNC_password_block">
-            <label for="noVNC_password_input">Password:</label>
-            <input id="noVNC_password_input" type="password">
+        <div id="webvnc_password_block">
+            <label for="webvnc_password_input">Password:</label>
+            <input id="webvnc_password_input" type="password">
         </div>
         <div class="button_row">
-            <input id="noVNC_credentials_button" type="submit" value="Send credentials">
+            <input id="webvnc_credentials_button" type="submit" value="Send credentials">
         </div>
     </form></div>
     </div>
 
     <!-- Transition screens -->
-    <div id="noVNC_transition" style="display:none !important">
-        <div id="noVNC_transition_text"></div>
+    <div id="webvnc_transition" style="display:none !important">
+        <div id="webvnc_transition_text"></div>
         <div>
-        <input type="button" id="noVNC_cancel_reconnect_button" value="Cancel">
+        <input type="button" id="webvnc_cancel_reconnect_button" value="Cancel">
         </div>
-        <div class="noVNC_spinner"></div>
+        <div class="webvnc_spinner"></div>
     </div>
 
     <!-- ===== 四象限十字布局 ===== -->
     <div id="webvnc_layout"
-         style="position:relative;width:100vw;height:100vh;overflow:hidden">
+         style="position:relative;flex:1;overflow:hidden">
 
         <!-- 二象限（左上）：文件树 -->
         <div id="q_file"
@@ -231,8 +248,8 @@
         <!-- 一象限（右上）：远程屏幕（预览框，样式见 panels.css） -->
         <div id="q_screen">
             <!-- This is where the RFB elements will attach -->
-            <div id="noVNC_container">
-                <textarea id="noVNC_keyboardinput" autocapitalize="off"
+            <div id="webvnc_container">
+                <textarea id="webvnc_keyboardinput" autocapitalize="off"
                     autocomplete="off" spellcheck="false" tabindex="-1"></textarea>
             </div>
             <div id="perf_overlay"
@@ -254,55 +271,55 @@
              style="position:absolute;left:0;bottom:0;width:340px;height:230px;display:flex;overflow:hidden;background:#23252a"
              data-th="background:nav">
 
-            <!-- noVNC 需要的隐藏外壳与按钮（勿删，ID 被 ui.js 引用） -->
-            <div id="noVNC_control_bar_anchor" style="display:none">
-            <div id="noVNC_control_bar">
-            <div id="noVNC_control_bar_handle"><div></div></div>
-                <input type="image" src="app/images/power.svg" id="noVNC_power_button">
-                <input type="image" src="app/images/clipboard.svg" id="noVNC_clipboard_button">
-                <input type="image" src="app/images/settings.svg" id="noVNC_settings_button">
+            <!-- webvnc 需要的隐藏外壳与按钮（勿删，ID 被 ui.js 引用） -->
+            <div id="webvnc_control_bar_anchor" style="display:none">
+            <div id="webvnc_control_bar">
+            <div id="webvnc_control_bar_handle"><div></div></div>
+                <input type="image" src="app/images/power.svg" id="webvnc_power_button">
+                <input type="image" src="app/images/clipboard.svg" id="webvnc_clipboard_button">
+                <input type="image" src="app/images/settings.svg" id="webvnc_settings_button">
             </div>
             </div>
 
             <!-- 已移除分类的按钮（保留 ID 供 ui.js 绑定，隐藏） -->
             <div style="display:none">
                 <input type="image" alt="Keyboard" src="app/images/keyboard.svg"
-                       id="noVNC_keyboard_button" class="noVNC_button">
+                       id="webvnc_keyboard_button" class="webvnc_button">
                 <input type="image" alt="Extra keys" src="app/images/toggleextrakeys.svg"
-                       id="noVNC_toggle_extra_keys_button" class="noVNC_button">
+                       id="webvnc_toggle_extra_keys_button" class="webvnc_button">
                 <input type="image" alt="Power" src="app/images/power.svg"
-                       id="noVNC_shutdown_button" class="noVNC_button">
+                       id="webvnc_shutdown_button" class="webvnc_button">
                 <input type="image" alt="Power" src="app/images/power.svg"
-                       id="noVNC_reboot_button" class="noVNC_button">
+                       id="webvnc_reboot_button" class="webvnc_button">
                 <input type="image" alt="Power" src="app/images/power.svg"
-                       id="noVNC_reset_button" class="noVNC_button">
-                <div id="noVNC_power" class="noVNC_panel">
-                    <div class="noVNC_heading"><img alt="" src="app/images/power.svg"> Power</div>
+                       id="webvnc_reset_button" class="webvnc_button">
+                <div id="webvnc_power" class="webvnc_panel">
+                    <div class="webvnc_heading"><img alt="" src="app/images/power.svg"> Power</div>
                 </div>
-                <div id="noVNC_clipboard" class="noVNC_panel">
-                    <textarea id="noVNC_clipboard_text" rows=5></textarea>
-                    <button id="noVNC_send_clipboard_button">发送到远程</button>
+                <div id="webvnc_clipboard" class="webvnc_panel">
+                    <textarea id="webvnc_clipboard_text" rows=5></textarea>
+                    <button id="webvnc_send_clipboard_button">发送到远程</button>
                 </div>
-                <div id="noVNC_modifiers" class="noVNC_panel">
+                <div id="webvnc_modifiers" class="webvnc_panel">
                     <input type="image" alt="Ctrl" src="app/images/ctrl.svg"
-                        id="noVNC_toggle_ctrl_button" class="noVNC_button">
+                        id="webvnc_toggle_ctrl_button" class="webvnc_button">
                     <input type="image" alt="Alt" src="app/images/alt.svg"
-                        id="noVNC_toggle_alt_button" class="noVNC_button">
+                        id="webvnc_toggle_alt_button" class="webvnc_button">
                     <input type="image" alt="Windows" src="app/images/windows.svg"
-                        id="noVNC_toggle_windows_button" class="noVNC_button">
+                        id="webvnc_toggle_windows_button" class="webvnc_button">
                     <input type="image" alt="Tab" src="app/images/tab.svg"
-                        id="noVNC_send_tab_button" class="noVNC_button">
+                        id="webvnc_send_tab_button" class="webvnc_button">
                     <input type="image" alt="Esc" src="app/images/esc.svg"
-                        id="noVNC_send_esc_button" class="noVNC_button">
+                        id="webvnc_send_esc_button" class="webvnc_button">
                     <input type="image" alt="Ctrl+Alt+Del" src="app/images/ctrlaltdel.svg"
-                        id="noVNC_send_ctrl_alt_del_button" class="noVNC_button">
+                        id="webvnc_send_ctrl_alt_del_button" class="webvnc_button">
                 </div>
                 <input type="image" alt="Drag" src="app/images/drag.svg"
-                    id="noVNC_view_drag_button" class="noVNC_button">
+                    id="webvnc_view_drag_button" class="webvnc_button">
                 <input type="image" alt="Full screen" src="app/images/fullscreen.svg"
-                    id="noVNC_fullscreen_button" class="noVNC_button">
+                    id="webvnc_fullscreen_button" class="webvnc_button">
                 <input type="image" alt="Disconnect" src="app/images/disconnect.svg"
-                    id="noVNC_disconnect_button" class="noVNC_button">
+                    id="webvnc_disconnect_button" class="webvnc_button">
             </div>
 
             <!-- 左栏：调整类型 -->
@@ -414,21 +431,21 @@
                 </div>
 
                 <div class="q3_pane" data-pane="set">
-                    <div id="noVNC_settings" class="noVNC_panel">
-                        <div class="noVNC_heading">
+                    <div id="webvnc_settings" class="webvnc_panel">
+                        <div class="webvnc_heading">
                             <img alt="" src="app/images/settings.svg"> Settings
                         </div>
                         <ul>
                             <li>
                                 <label>
-                                    <input id="noVNC_setting_shared" type="checkbox"
+                                    <input id="webvnc_setting_shared" type="checkbox"
                                            class="toggle">
                                     Shared mode
                                 </label>
                             </li>
                             <li>
                                 <label>
-                                    <input id="noVNC_setting_view_only" type="checkbox"
+                                    <input id="webvnc_setting_view_only" type="checkbox"
                                            class="toggle">
                                     View only
                                 </label>
@@ -436,14 +453,14 @@
                             <li><hr></li>
                             <li>
                                 <label>
-                                    <input id="noVNC_setting_view_clip" type="checkbox"
+                                    <input id="webvnc_setting_view_clip" type="checkbox"
                                            class="toggle">
                                     Clip to window
                                 </label>
                             </li>
                             <li style="display:none">
-                                <label for="noVNC_setting_resize">Scaling mode:</label>
-                                <select id="noVNC_setting_resize" name="vncResize">
+                                <label for="webvnc_setting_resize">Scaling mode:</label>
+                                <select id="webvnc_setting_resize" name="vncResize">
                                     <option value="off" selected>None</option>
                                     <option value="scale">Local scaling</option>
                                     <option value="remote">Remote resizing</option>
@@ -451,68 +468,68 @@
                             </li>
                             <li><hr></li>
                             <li>
-                                <div class="noVNC_expander">Advanced</div>
+                                <div class="webvnc_expander">Advanced</div>
                                 <div><ul>
                                     <li>
-                                        <label for="noVNC_setting_quality">Quality:</label>
-                                        <input id="noVNC_setting_quality" type="range" min="0" max="9" value="6">
+                                        <label for="webvnc_setting_quality">Quality:</label>
+                                        <input id="webvnc_setting_quality" type="range" min="0" max="9" value="6">
                                     </li>
                                     <li>
-                                        <label for="noVNC_setting_compression">Compression level:</label>
-                                        <input id="noVNC_setting_compression" type="range" min="0" max="9" value="2">
+                                        <label for="webvnc_setting_compression">Compression level:</label>
+                                        <input id="webvnc_setting_compression" type="range" min="0" max="9" value="2">
                                     </li>
                                     <li><hr></li>
-                                    <li class="noVNC_hide">
-                                        <label for="noVNC_setting_repeaterID">Repeater ID:</label>
-                                        <input id="noVNC_setting_repeaterID" type="text" value="">
+                                    <li class="webvnc_hide">
+                                        <label for="webvnc_setting_repeaterID">Repeater ID:</label>
+                                        <input id="webvnc_setting_repeaterID" type="text" value="">
                                     </li>
-                                    <li class="noVNC_hide">
-                                        <div class="noVNC_expander">WebSocket</div>
+                                    <li class="webvnc_hide">
+                                        <div class="webvnc_expander">WebSocket</div>
                                         <div><ul>
                                             <li>
                                                 <label>
-                                                    <input id="noVNC_setting_encrypt" type="checkbox"
+                                                    <input id="webvnc_setting_encrypt" type="checkbox"
                                                            class="toggle">
                                                     Encrypt
                                                 </label>
                                             </li>
                                             <li>
-                                                <label for="noVNC_setting_host">Host:</label>
-                                                <input id="noVNC_setting_host">
+                                                <label for="webvnc_setting_host">Host:</label>
+                                                <input id="webvnc_setting_host">
                                             </li>
                                             <li>
-                                                <label for="noVNC_setting_port">Port:</label>
-                                                <input id="noVNC_setting_port" type="number">
+                                                <label for="webvnc_setting_port">Port:</label>
+                                                <input id="webvnc_setting_port" type="number">
                                             </li>
                                             <li>
-                                                <label for="noVNC_setting_path">Path:</label>
-                                                <input id="noVNC_setting_path" type="text" value="websockify">
+                                                <label for="webvnc_setting_path">Path:</label>
+                                                <input id="webvnc_setting_path" type="text" value="websockify">
                                             </li>
                                         </ul></div>
                                     </li>
                                     <li><hr></li>
                                     <li>
                                         <label>
-                                            <input id="noVNC_setting_reconnect" type="checkbox"
+                                            <input id="webvnc_setting_reconnect" type="checkbox"
                                                    class="toggle">
                                             Automatic reconnect
                                         </label>
                                     </li>
                                     <li>
-                                        <label for="noVNC_setting_reconnect_delay">Reconnect delay (ms):</label>
-                                        <input id="noVNC_setting_reconnect_delay" type="number">
+                                        <label for="webvnc_setting_reconnect_delay">Reconnect delay (ms):</label>
+                                        <input id="webvnc_setting_reconnect_delay" type="number">
                                     </li>
                                     <li><hr></li>
                                     <li>
                                         <label>
-                                            <input id="noVNC_setting_show_dot" type="checkbox"
+                                            <input id="webvnc_setting_show_dot" type="checkbox"
                                                    class="toggle">
                                             Show dot when no cursor
                                         </label>
                                     </li>
                                     <li>
                                         <label>
-                                            <input id="noVNC_setting_keep_device_awake" type="checkbox"
+                                            <input id="webvnc_setting_keep_device_awake" type="checkbox"
                                                     class="toggle">
                                             Keep client display awake while connected
                                         </label>
@@ -520,16 +537,16 @@
                                     <li><hr></li>
                                     <li>
                                         <label>Logging:
-                                            <select id="noVNC_setting_logging" name="vncLogging">
+                                            <select id="webvnc_setting_logging" name="vncLogging">
                                             </select>
                                         </label>
                                     </li>
                                 </ul></div>
                             </li>
-                            <li class="noVNC_version_separator"><hr></li>
-                            <li class="noVNC_version_wrapper">
+                            <li class="webvnc_version_separator"><hr></li>
+                            <li class="webvnc_version_wrapper">
                                 <span>Version:</span>
-                                <span class="noVNC_version"></span>
+                                <span class="webvnc_version"></span>
                             </li>
                         </ul>
                     </div>
@@ -686,10 +703,32 @@
         </div>
     </div>
 
-    <audio id="noVNC_bell">
+    <audio id="webvnc_bell">
         <source src="app/sounds/bell.oga" type="audio/ogg">
         <source src="app/sounds/bell.mp3" type="audio/mpeg">
     </audio>
+
+    <!-- zip 打包进度弹窗 -->
+    <div id="zip_modal_overlay"
+         style="display:none;position:fixed;inset:0;background:rgba(128,128,128,0.4);z-index:10000;align-items:center;justify-content:center">
+        <div id="zip_modal_dlg"
+             style="background:#2b2e33;color:#ffffff;border:1px solid #4a4e56;border-radius:8px;padding:20px 24px;min-width:360px;max-width:480px;box-shadow:0 8px 30px rgba(0,0,0,0.4);font-family:'Segoe UI',Arial,sans-serif;font-size:13px"
+             data-th="background:bg;color:fg;border-color:border">
+            <div style="font-size:15px;font-weight:600;margin-bottom:12px">正在打包 ZIP</div>
+            <div id="zip_progress_info"
+                 style="font-size:12px;color:#b6bac2;margin-bottom:8px;word-break:break-all"
+                 data-th="color:muted">准备中...</div>
+            <div style="background:#1a1b20;border-radius:4px;height:12px;overflow:hidden;margin-bottom:14px">
+                <div id="zip_progress_bar"
+                     style="height:100%;width:0%;background:#636a75;border-radius:4px;transition:width 0.15s"></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px">
+                <button id="zip_cancel_btn"
+                        style="border-radius:4px;border:1px solid #4a4e56;background:transparent;color:#b6bac2;padding:6px 16px;cursor:pointer;font-family:inherit;font-size:13px"
+                        data-th="border-color:border;color:muted">取消</button>
+            </div>
+        </div>
+    </div>
 
     <script src="app/webvnc.js"></script>
  </body>

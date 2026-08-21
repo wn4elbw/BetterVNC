@@ -73,7 +73,7 @@
      * 三象限：缩放调整（原始 / 适配 / 远程）
      * ================================================================== */
     function setupZoom() {
-        const sel = $("noVNC_setting_resize");
+        const sel = $("webvnc_setting_resize");
         const btns = document.querySelectorAll(".zoom_btn");
         const resolution = $("display_resolution_select");
         const reset = $("display_reset_btn");
@@ -104,6 +104,9 @@
         });
         sel.addEventListener("change", sync);
         sync();
+        
+        // 暴露 sync 函数供 UI 加载完成后调用
+        window.__syncZoomButtons = sync;
 
         function setOptions(select, options, value, label) {
             if (!select) return;
@@ -194,7 +197,10 @@
         if (resolution) {
             resolution.addEventListener("change", applyDisplay);
             reset.addEventListener("click", resetDisplay);
-            loadDisplay();
+            // 延迟到认证完成后加载分辨率列表
+            document.addEventListener("wv-auth-ready", () => {
+                loadDisplay();
+            });
         }
     }
 
@@ -382,7 +388,7 @@
             load();
         }
 
-        return { init, set, palette, refreshNav };
+        return { init, set, palette, refreshNav, syncUI };
     })();
 
     /* ====================================================================
@@ -462,23 +468,114 @@
         }
 
         function downloadPath(p) {
-            const a = document.createElement("a");
-            a.href = "/api/fs/download?path=" + encodeURIComponent(p);
-            a.download = "";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+            const token = (window.__WEBVNC_AUTH && window.__WEBVNC_AUTH.getToken()) || "";
+            fetch("/api/fs/download?path=" + encodeURIComponent(p), {
+                headers: token ? { "X-Auth-Token": token } : {},
+            }).then((resp) => {
+                if (!resp.ok) {
+                    return resp.json().then((err) => {
+                        setStatus("下载失败: " + (err.error || resp.status));
+                    }).catch(() => {
+                        setStatus("下载失败: " + resp.status);
+                    });
+                }
+                return resp.blob().then((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    const filename = decodeURIComponent(p.split("/").pop() || "download");
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                });
+            }).catch((err) => setStatus("下载失败: " + err));
         }
 
         function zipDownload(paths) {
+            const token = (window.__WEBVNC_AUTH && window.__WEBVNC_AUTH.getToken()) || "";
             const query = paths.map((p) => encodeURIComponent(p)).join(",");
-            const a = document.createElement("a");
-            a.href = "/api/fs/zip?paths=" + query;
-            a.download = "webvnc.zip";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setStatus("已开始下载 zip");
+            const overlay = document.getElementById("zip_modal_overlay");
+            const bar = document.getElementById("zip_progress_bar");
+            const info = document.getElementById("zip_progress_info");
+            const cancelBtn = document.getElementById("zip_cancel_btn");
+            if (!overlay || !bar) return;
+
+            const xhr = new XMLHttpRequest();
+            let cancelled = false;
+
+            function closeModal() {
+                overlay.style.display = "none";
+                cancelBtn.onclick = null;
+            }
+
+            cancelBtn.onclick = function () {
+                cancelled = true;
+                xhr.abort();
+                closeModal();
+                setStatus("已取消打包");
+            };
+
+            overlay.style.display = "flex";
+            bar.style.width = "0%";
+            info.textContent = "正在打包...";
+
+            xhr.open("GET", "/api/fs/zip?paths=" + query, true);
+            xhr.responseType = "blob";
+            if (token) xhr.setRequestHeader("X-Auth-Token", token);
+
+            xhr.onprogress = function (ev) {
+                if (cancelled) return;
+                if (ev.lengthComputable && ev.total > 0) {
+                    const pct = Math.round((ev.loaded / ev.total) * 100);
+                    bar.style.width = pct + "%";
+                    info.textContent = "下载中... " + pct + "%";
+                } else if (ev.loaded > 0) {
+                    info.textContent = "下载中... " + (ev.loaded / 1024).toFixed(0) + " KB";
+                }
+            };
+
+            xhr.onload = function () {
+                if (cancelled) return;
+                closeModal();
+                if (xhr.status === 200) {
+                    const ct = xhr.getResponseHeader("Content-Type") || "";
+                    if (ct.includes("application/json")) {
+                        const reader = new FileReader();
+                        reader.onload = function () {
+                            try {
+                                const err = JSON.parse(reader.result);
+                                setStatus("打包失败: " + (err.error || "未知错误"));
+                            } catch (e) {
+                                setStatus("打包失败: " + xhr.status);
+                            }
+                        };
+                        reader.readAsText(xhr.response);
+                        return;
+                    }
+                    const blob = xhr.response;
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "webvnc.zip";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                    setStatus("打包下载完成");
+                } else {
+                    setStatus("打包失败: " + xhr.status);
+                }
+            };
+
+            xhr.onerror = function () {
+                if (cancelled) return;
+                closeModal();
+                setStatus("打包请求失败");
+            };
+
+            xhr.send();
         }
 
         function doDelete(p) {
@@ -699,7 +796,10 @@
             }
         }
 
-        async function refresh() { await load(state.path); }
+        async function refresh() {
+            if (state.path === "") { await showRoot(); return; }
+            await load(state.path);
+        }
 
         async function goUp() {
             if (state.path === "") return; /* 根目录下点击无效 */
@@ -809,7 +909,7 @@
             });
             bindTreeEvents();
             setupDragDrop();
-            showRoot();
+            document.addEventListener("wv-auth-ready", () => showRoot(), { once: true });
             /* 主题切换后重新渲染文件行（内联颜色按新主题） */
             document.addEventListener("wv-theme-change", () => {
                 if (state.items.length) render();
@@ -1382,13 +1482,19 @@
         const toggle = $("perf_show_btn");
         let enabled = false;
         let frames = 0;
+        let totalFrames = 0;
         let lastCount = 0;
         let fps = 0;
         let latency = -1;
         let reso = "--";
         let encoder = "-";
         let hooked = false;
+        let bwHooked = false;
         let timers = null;
+        let bytesReceived = 0;
+        let lastBwBytes = 0;
+        let lastBwTime = 0;
+        let connectTime = 0;
 
         function hookRfb() {
             const rfb = (window.UI || {}).rfb;
@@ -1399,8 +1505,31 @@
             const orig = rfb._framebufferUpdate.bind(rfb);
             rfb._framebufferUpdate = function () {
                 frames++;
+                totalFrames++;
                 return orig.apply(rfb, arguments);
             };
+        }
+
+        function hookBandwidth() {
+            const rfb = (window.UI || {}).rfb;
+            if (!rfb || bwHooked) return;
+            const ws = rfb._sock && rfb._sock._websocket;
+            if (ws && ws.onmessage) {
+                bwHooked = true;
+                const origOnMsg = ws.onmessage;
+                ws.onmessage = function (ev) {
+                    if (ev.data) {
+                        if (typeof ev.data === "string") {
+                            bytesReceived += ev.data.length;
+                        } else if (ev.data.byteLength !== undefined) {
+                            bytesReceived += ev.data.byteLength;
+                        } else if (ev.data.size !== undefined) {
+                            bytesReceived += ev.data.size;
+                        }
+                    }
+                    origOnMsg.call(ws, ev);
+                };
+            }
         }
 
         function ping() {
@@ -1410,9 +1539,16 @@
                 .catch(() => { latency = -1; });
         }
 
+        function formatBytes(bw) {
+            if (bw >= 1048576) return (bw / 1048576).toFixed(1) + " MB/s";
+            if (bw >= 1024) return (bw / 1024).toFixed(0) + " KB/s";
+            return bw.toFixed(0) + " B/s";
+        }
+
         function tick() {
             if (!enabled || !overlay) return;
             hookRfb();
+            hookBandwidth();
             const rfb = (window.UI || {}).rfb;
             if (rfb) {
                 const w = rfb._fbWidth, h = rfb._fbHeight;
@@ -1428,9 +1564,32 @@
                 lastCount = now;
                 frames = 0;
             }
-            overlay.textContent = "帧率: " + (fps > 0 ? fps : "--") + " FPS\n画质: " +
-                reso + " / " + encoder.toUpperCase() + "\n延迟: " +
-                (latency >= 0 ? latency : "--") + " ms";
+            let bwStr = "--";
+            if (lastBwTime > 0) {
+                const bwElapsed = (now - lastBwTime) / 1000;
+                const bw = bwElapsed > 0.5 ? (bytesReceived - lastBwBytes) / bwElapsed : 0;
+                bwStr = formatBytes(bw);
+            }
+            lastBwTime = now;
+            lastBwBytes = bytesReceived;
+
+            let uptimeStr = "--";
+            if (connectTime > 0) {
+                const elapsed = Math.floor((Date.now() - connectTime) / 1000);
+                const h = Math.floor(elapsed / 3600);
+                const m = Math.floor((elapsed % 3600) / 60);
+                const s = elapsed % 60;
+                uptimeStr = h > 0 ?
+                    h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0") :
+                    m + ":" + String(s).padStart(2, "0");
+            }
+
+            overlay.textContent = "帧率: " + (fps > 0 ? fps : "--") + " FPS\n" +
+                "帧数: " + totalFrames.toLocaleString() + "\n" +
+                "带宽: " + bwStr + "\n" +
+                "画质: " + reso + " / " + encoder.toUpperCase() + "\n" +
+                "延迟: " + (latency >= 0 ? latency : "--") + " ms\n" +
+                "时长: " + uptimeStr;
         }
 
         function init() {
@@ -1445,11 +1604,17 @@
                 }).catch(() => { /* 忽略 */ });
                 if (enabled) {
                     frames = 0;
+                    totalFrames = 0;
                     lastCount = performance.now();
                     fps = 0;
                     latency = -1;
                     reso = "--";
+                    bytesReceived = 0;
+                    lastBwBytes = 0;
+                    lastBwTime = 0;
+                    connectTime = Date.now();
                     hookRfb();
+                    hookBandwidth();
                     ping();
                     tick();
                     if (!timers) {
@@ -1469,7 +1634,9 @@
                     overlay.style.display = enabled ? "block" : "none";
                     if (enabled) {
                         lastCount = performance.now();
+                        connectTime = Date.now();
                         hookRfb();
+                        hookBandwidth();
                         ping();
                         tick();
                         timers = [
@@ -1484,6 +1651,15 @@
         return { init };
     })();
 
+    function setupAdminTopbar() {
+        const backBtn = document.getElementById("admin_btn_back");
+        if (backBtn) {
+            backBtn.addEventListener("click", () => {
+                window.location.href = "/login.html";
+            });
+        }
+    }
+
     function boot() {
         setupQ3Nav();
         setupScreenTools();
@@ -1492,6 +1668,7 @@
         theme.init();
         moveDialog.init();
         fm.init();
+        setupAdminTopbar();
         term.init();
         srvlog.init();
         loadPanel.init();
@@ -1500,9 +1677,116 @@
         setupEncoder();
     }
 
+    /* ====================================================================
+     * 密码认证：统一登录入口。管理员登录后进入完整界面，
+     * 旁观者登录后跳转到独立的只读页面 observer.html。
+     * ================================================================== */
+    const auth = (function () {
+        let token = "";
+        let role = "";
+        let heartbeatTimer = null;
+        const pageId = (window.crypto && crypto.randomUUID) ?
+            crypto.randomUUID() : String(Date.now()) + Math.random().toString(36);
+        const originalFetch = window.fetch.bind(window);
+
+        function fetchWithAuth(input, init) {
+            const opts = Object.assign({}, init || {});
+            const headers = new Headers(opts.headers || {});
+            if (token) headers.set("X-Auth-Token", token);
+            opts.headers = headers;
+            return originalFetch(input, opts).then((response) => {
+                if (response.status === 401) {
+                    document.dispatchEvent(new CustomEvent("wv-auth-failed"));
+                }
+                return response;
+            });
+        }
+
+        function startHeartbeat() {
+            if (heartbeatTimer) clearInterval(heartbeatTimer);
+            heartbeatTimer = setInterval(() => {
+                fetchWithAuth("/api/auth/heartbeat", { method: "POST" })
+                    .catch(() => { /* 会话续期失败忽略 */ });
+            }, 15000);
+        }
+
+        function finishStartup() {
+            window.__WEBVNC_AUTH = { getToken: () => token, getRole: () => role };
+            window.fetch = fetchWithAuth;
+            startHeartbeat();
+            window.addEventListener("beforeunload", () => {
+                if (token) {
+                    fetch("/api/auth/logout", { method: "POST", keepalive: true })
+                        .catch(() => { /* 忽略 */ });
+                }
+            });
+            hideLoading();
+            document.dispatchEvent(new CustomEvent("wv-auth-ready"));
+            if (typeof window.__startVnc !== "function") {
+                window.setTimeout(finishStartup, 50);
+                return;
+            }
+            Promise.resolve(window.__startVnc()).then(() => {
+                const ui = window.UI;
+                if (ui && typeof ui.connect === "function" && ui.rfb === undefined) {
+                    try { ui.connect(); } catch (err) { /* 忽略 */ }
+                }
+                // UI 加载完成后同步缩放和主题按钮状态
+                if (typeof window.__syncZoomButtons === "function") {
+                    window.__syncZoomButtons();
+                }
+                if (typeof theme.syncUI === "function") {
+                    theme.syncUI();
+                }
+            });
+        }
+
+        function start() {
+            const urlToken = new URLSearchParams(location.search).get("auth");
+            if (urlToken) {
+                token = urlToken;
+                role = "admin";
+                originalFetch("/api/auth/heartbeat", {
+                    method: "POST",
+                    headers: { "X-Auth-Token": token },
+                }).then((r) => {
+                    if (r.ok) {
+                        finishStartup();
+                    } else {
+                        window.location.href = "/login.html";
+                    }
+                }).catch(() => {
+                    window.location.href = "/login.html";
+                });
+                return;
+            }
+            originalFetch("/api/auth/config")
+                .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+                .then((cfg) => {
+                    if (!cfg.required) {
+                        role = "admin";
+                        finishStartup();
+                        return;
+                    }
+                    hideLoading();
+                    window.location.href = "/login.html";
+                })
+                .catch(() => {
+                    hideLoading();
+                    window.location.href = "/login.html";
+                });
+        }
+
+        return { start };
+    })();
+
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", boot);
+        document.addEventListener("DOMContentLoaded", () => {
+            boot();
+            auth.start();
+        });
     } else {
         boot();
+        auth.start();
     }
 })();
