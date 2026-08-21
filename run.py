@@ -498,7 +498,7 @@ class App:
         save_auth_config("custom", new_password, auth["observer_enabled"])
         
         self.emergency_status.configure(
-            text=f"接管成功！新密码：{new_password}\n请立即记录此密码，然后可在"安全"页面修改。",
+            text=f"接管成功！新密码：{new_password}\n请立即记录此密码，然后可在「安全」页面修改。",
             foreground="#16733b")
         self.emergency_pwd.delete(0, tk.END)
         
