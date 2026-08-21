@@ -1,5 +1,5 @@
 /*
- * noVNC: HTML5 VNC client
+ * webvnc: HTML5 VNC client
  * Copyright (C) 2019 The noVNC authors
  * Licensed under MPL 2.0 (see LICENSE.txt)
  *
@@ -97,11 +97,11 @@ const UI = {
             }
 
             let packageInfo = await response.json();
-            Array.from(document.getElementsByClassName('noVNC_version')).forEach(el => el.innerText = packageInfo.version);
+            Array.from(document.getElementsByClassName('webvnc_version')).forEach(el => el.innerText = packageInfo.version);
         } catch (err) {
             Log.Error("Couldn't fetch package.json: " + err);
-            Array.from(document.getElementsByClassName('noVNC_version_wrapper'))
-                .concat(Array.from(document.getElementsByClassName('noVNC_version_separator')))
+            Array.from(document.getElementsByClassName('webvnc_version_wrapper'))
+                .concat(Array.from(document.getElementsByClassName('webvnc_version_separator')))
                 .forEach(el => el.style.display = 'none');
         }
 
@@ -129,7 +129,7 @@ const UI = {
         UI.addConnectionControlHandlers();
         UI.addClipboardHandlers();
         UI.addSettingsHandlers();
-        document.getElementById("noVNC_status")
+        document.getElementById("webvnc_status")
             .addEventListener('click', UI.hideStatus);
 
         // Bootstrap fallback input handler
@@ -139,7 +139,7 @@ const UI = {
 
         UI.updateVisualState('init');
 
-        document.documentElement.classList.remove("noVNC_loading");
+        document.documentElement.classList.remove("webvnc_loading");
 
         // Always connect automatically since the connect panel has been removed
         UI.connect();
@@ -153,8 +153,8 @@ const UI = {
              document.documentElement.mozRequestFullScreen ||
              document.documentElement.webkitRequestFullscreen ||
              document.body.msRequestFullscreen)) {
-            document.getElementById('noVNC_fullscreen_button')
-                .classList.remove("noVNC_hidden");
+            document.getElementById('webvnc_fullscreen_button')
+                .classList.remove("webvnc_hidden");
             UI.addFullscreenHandlers();
         }
     },
@@ -163,7 +163,7 @@ const UI = {
         // Logging selection dropdown
         const llevels = ['error', 'warn', 'info', 'debug'];
         for (let i = 0; i < llevels.length; i += 1) {
-            UI.addOption(document.getElementById('noVNC_setting_logging'), llevels[i], llevels[i]);
+            UI.addOption(document.getElementById('webvnc_setting_logging'), llevels[i], llevels[i]);
         }
 
         // Settings with immediate effects
@@ -220,132 +220,132 @@ const UI = {
 * ------v------*/
 
     addControlbarHandlers() {
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('mousemove', UI.activateControlbar);
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('mouseup', UI.activateControlbar);
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('mousedown', UI.activateControlbar);
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('keydown', UI.activateControlbar);
 
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('mousedown', UI.keepControlbar);
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('keydown', UI.keepControlbar);
 
-        document.getElementById("noVNC_view_drag_button")
+        document.getElementById("webvnc_view_drag_button")
             .addEventListener('click', UI.toggleViewDrag);
 
-        document.getElementById("noVNC_control_bar_handle")
+        document.getElementById("webvnc_control_bar_handle")
             .addEventListener('mousedown', UI.controlbarHandleMouseDown);
-        document.getElementById("noVNC_control_bar_handle")
+        document.getElementById("webvnc_control_bar_handle")
             .addEventListener('mouseup', UI.controlbarHandleMouseUp);
-        document.getElementById("noVNC_control_bar_handle")
+        document.getElementById("webvnc_control_bar_handle")
             .addEventListener('mousemove', UI.dragControlbarHandle);
         // resize events aren't available for elements
         window.addEventListener('resize', UI.updateControlbarHandle);
 
-        const exps = document.getElementsByClassName("noVNC_expander");
+        const exps = document.getElementsByClassName("webvnc_expander");
         for (let i = 0;i < exps.length;i++) {
             exps[i].addEventListener('click', UI.toggleExpander);
         }
     },
 
     addTouchSpecificHandlers() {
-        document.getElementById("noVNC_keyboard_button")
+        document.getElementById("webvnc_keyboard_button")
             .addEventListener('click', UI.toggleVirtualKeyboard);
 
-        UI.touchKeyboard = new Keyboard(document.getElementById('noVNC_keyboardinput'));
+        UI.touchKeyboard = new Keyboard(document.getElementById('webvnc_keyboardinput'));
         UI.touchKeyboard.onkeyevent = UI.keyEvent;
         UI.touchKeyboard.grab();
-        document.getElementById("noVNC_keyboardinput")
+        document.getElementById("webvnc_keyboardinput")
             .addEventListener('input', UI.keyInput);
-        document.getElementById("noVNC_keyboardinput")
+        document.getElementById("webvnc_keyboardinput")
             .addEventListener('focus', UI.onfocusVirtualKeyboard);
-        document.getElementById("noVNC_keyboardinput")
+        document.getElementById("webvnc_keyboardinput")
             .addEventListener('blur', UI.onblurVirtualKeyboard);
-        document.getElementById("noVNC_keyboardinput")
+        document.getElementById("webvnc_keyboardinput")
             .addEventListener('submit', () => false);
 
         document.documentElement
             .addEventListener('mousedown', UI.keepVirtualKeyboard, true);
 
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('touchstart', UI.activateControlbar);
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('touchmove', UI.activateControlbar);
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('touchend', UI.activateControlbar);
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('input', UI.activateControlbar);
 
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('touchstart', UI.keepControlbar);
-        document.getElementById("noVNC_control_bar")
+        document.getElementById("webvnc_control_bar")
             .addEventListener('input', UI.keepControlbar);
 
-        document.getElementById("noVNC_control_bar_handle")
+        document.getElementById("webvnc_control_bar_handle")
             .addEventListener('touchstart', UI.controlbarHandleMouseDown);
-        document.getElementById("noVNC_control_bar_handle")
+        document.getElementById("webvnc_control_bar_handle")
             .addEventListener('touchend', UI.controlbarHandleMouseUp);
-        document.getElementById("noVNC_control_bar_handle")
+        document.getElementById("webvnc_control_bar_handle")
             .addEventListener('touchmove', UI.dragControlbarHandle);
     },
 
     addExtraKeysHandlers() {
-        document.getElementById("noVNC_toggle_extra_keys_button")
+        document.getElementById("webvnc_toggle_extra_keys_button")
             .addEventListener('click', UI.toggleExtraKeys);
-        document.getElementById("noVNC_toggle_ctrl_button")
+        document.getElementById("webvnc_toggle_ctrl_button")
             .addEventListener('click', UI.toggleCtrl);
-        document.getElementById("noVNC_toggle_windows_button")
+        document.getElementById("webvnc_toggle_windows_button")
             .addEventListener('click', UI.toggleWindows);
-        document.getElementById("noVNC_toggle_alt_button")
+        document.getElementById("webvnc_toggle_alt_button")
             .addEventListener('click', UI.toggleAlt);
-        document.getElementById("noVNC_send_tab_button")
+        document.getElementById("webvnc_send_tab_button")
             .addEventListener('click', UI.sendTab);
-        document.getElementById("noVNC_send_esc_button")
+        document.getElementById("webvnc_send_esc_button")
             .addEventListener('click', UI.sendEsc);
-        document.getElementById("noVNC_send_ctrl_alt_del_button")
+        document.getElementById("webvnc_send_ctrl_alt_del_button")
             .addEventListener('click', UI.sendCtrlAltDel);
     },
 
     addMachineHandlers() {
-        document.getElementById("noVNC_shutdown_button")
+        document.getElementById("webvnc_shutdown_button")
             .addEventListener('click', () => UI.rfb.machineShutdown());
-        document.getElementById("noVNC_reboot_button")
+        document.getElementById("webvnc_reboot_button")
             .addEventListener('click', () => UI.rfb.machineReboot());
-        document.getElementById("noVNC_reset_button")
+        document.getElementById("webvnc_reset_button")
             .addEventListener('click', () => UI.rfb.machineReset());
-        document.getElementById("noVNC_power_button")
+        document.getElementById("webvnc_power_button")
             .addEventListener('click', UI.togglePowerPanel);
     },
 
     addConnectionControlHandlers() {
-        document.getElementById("noVNC_disconnect_button")
+        document.getElementById("webvnc_disconnect_button")
             .addEventListener('click', UI.disconnect);
-        document.getElementById("noVNC_cancel_reconnect_button")
+        document.getElementById("webvnc_cancel_reconnect_button")
             .addEventListener('click', UI.cancelReconnect);
 
-        document.getElementById("noVNC_approve_server_button")
+        document.getElementById("webvnc_approve_server_button")
             .addEventListener('click', UI.approveServer);
-        document.getElementById("noVNC_reject_server_button")
+        document.getElementById("webvnc_reject_server_button")
             .addEventListener('click', UI.rejectServer);
-        document.getElementById("noVNC_credentials_button")
+        document.getElementById("webvnc_credentials_button")
             .addEventListener('click', UI.setCredentials);
     },
 
     addClipboardHandlers() {
-        document.getElementById("noVNC_clipboard_button")
+        document.getElementById("webvnc_clipboard_button")
             .addEventListener('click', UI.toggleClipboardPanel);
-        document.getElementById("noVNC_clipboard_text")
+        document.getElementById("webvnc_clipboard_text")
             .addEventListener('change', UI.clipboardSend);
     },
 
     // Add a call to save settings when the element changes,
     // unless the optional parameter changeFunc is used instead.
     addSettingChangeHandler(name, changeFunc) {
-        const settingElem = document.getElementById("noVNC_setting_" + name);
+        const settingElem = document.getElementById("webvnc_setting_" + name);
         if (changeFunc === undefined) {
             changeFunc = () => UI.saveSetting(name);
         }
@@ -353,7 +353,7 @@ const UI = {
     },
 
     addSettingsHandlers() {
-        document.getElementById("noVNC_settings_button")
+        document.getElementById("webvnc_settings_button")
             .addEventListener('click', UI.toggleSettingsPanel);
 
         UI.addSettingChangeHandler('encrypt');
@@ -384,7 +384,7 @@ const UI = {
     },
 
     addFullscreenHandlers() {
-        document.getElementById("noVNC_fullscreen_button")
+        document.getElementById("webvnc_fullscreen_button")
             .addEventListener('click', UI.toggleFullscreen);
 
         window.addEventListener('fullscreenchange', UI.updateFullscreenButton);
@@ -402,31 +402,31 @@ const UI = {
     // Disable/enable controls depending on connection state
     updateVisualState(state) {
 
-        document.documentElement.classList.remove("noVNC_connecting");
-        document.documentElement.classList.remove("noVNC_connected");
-        document.documentElement.classList.remove("noVNC_disconnecting");
-        document.documentElement.classList.remove("noVNC_reconnecting");
+        document.documentElement.classList.remove("webvnc_connecting");
+        document.documentElement.classList.remove("webvnc_connected");
+        document.documentElement.classList.remove("webvnc_disconnecting");
+        document.documentElement.classList.remove("webvnc_reconnecting");
 
-        const transitionElem = document.getElementById("noVNC_transition_text");
+        const transitionElem = document.getElementById("webvnc_transition_text");
         switch (state) {
             case 'init':
                 break;
             case 'connecting':
                 transitionElem.textContent = _("Connecting...");
-                document.documentElement.classList.add("noVNC_connecting");
+                document.documentElement.classList.add("webvnc_connecting");
                 break;
             case 'connected':
-                document.documentElement.classList.add("noVNC_connected");
+                document.documentElement.classList.add("webvnc_connected");
                 break;
             case 'disconnecting':
                 transitionElem.textContent = _("Disconnecting...");
-                document.documentElement.classList.add("noVNC_disconnecting");
+                document.documentElement.classList.add("webvnc_disconnecting");
                 break;
             case 'disconnected':
                 break;
             case 'reconnecting':
                 transitionElem.textContent = _("Reconnecting...");
-                document.documentElement.classList.add("noVNC_reconnecting");
+                document.documentElement.classList.add("webvnc_reconnecting");
                 break;
             default:
                 Log.Error("Invalid visual state: " + state);
@@ -460,14 +460,14 @@ const UI = {
         // State change closes dialogs as they may not be relevant
         // anymore
         UI.closeAllPanels();
-        document.getElementById('noVNC_verify_server_dlg')
-            .classList.remove('noVNC_open');
-        document.getElementById('noVNC_credentials_dlg')
-            .classList.remove('noVNC_open');
+        document.getElementById('webvnc_verify_server_dlg')
+            .classList.remove('webvnc_open');
+        document.getElementById('webvnc_credentials_dlg')
+            .classList.remove('webvnc_open');
     },
 
     showStatus(text, statusType, time) {
-        const statusElem = document.getElementById('noVNC_status');
+        const statusElem = document.getElementById('webvnc_status');
 
         if (typeof statusType === 'undefined') {
             statusType = 'normal';
@@ -475,11 +475,11 @@ const UI = {
 
         // Don't overwrite more severe visible statuses and never
         // errors. Only shows the first error.
-        if (statusElem.classList.contains("noVNC_open")) {
-            if (statusElem.classList.contains("noVNC_status_error")) {
+        if (statusElem.classList.contains("webvnc_open")) {
+            if (statusElem.classList.contains("webvnc_status_error")) {
                 return;
             }
-            if (statusElem.classList.contains("noVNC_status_warn") &&
+            if (statusElem.classList.contains("webvnc_status_warn") &&
                 statusType === 'normal') {
                 return;
             }
@@ -489,27 +489,27 @@ const UI = {
 
         switch (statusType) {
             case 'error':
-                statusElem.classList.remove("noVNC_status_warn");
-                statusElem.classList.remove("noVNC_status_normal");
-                statusElem.classList.add("noVNC_status_error");
+                statusElem.classList.remove("webvnc_status_warn");
+                statusElem.classList.remove("webvnc_status_normal");
+                statusElem.classList.add("webvnc_status_error");
                 break;
             case 'warning':
             case 'warn':
-                statusElem.classList.remove("noVNC_status_error");
-                statusElem.classList.remove("noVNC_status_normal");
-                statusElem.classList.add("noVNC_status_warn");
+                statusElem.classList.remove("webvnc_status_error");
+                statusElem.classList.remove("webvnc_status_normal");
+                statusElem.classList.add("webvnc_status_warn");
                 break;
             case 'normal':
             case 'info':
             default:
-                statusElem.classList.remove("noVNC_status_error");
-                statusElem.classList.remove("noVNC_status_warn");
-                statusElem.classList.add("noVNC_status_normal");
+                statusElem.classList.remove("webvnc_status_error");
+                statusElem.classList.remove("webvnc_status_warn");
+                statusElem.classList.add("webvnc_status_normal");
                 break;
         }
 
         statusElem.textContent = text;
-        statusElem.classList.add("noVNC_open");
+        statusElem.classList.add("webvnc_open");
 
         // If no time was specified, show the status for 1.5 seconds
         if (typeof time === 'undefined') {
@@ -524,28 +524,28 @@ const UI = {
 
     hideStatus() {
         clearTimeout(UI.statusTimeout);
-        document.getElementById('noVNC_status').classList.remove("noVNC_open");
+        document.getElementById('webvnc_status').classList.remove("webvnc_open");
     },
 
     activateControlbar(event) {
         clearTimeout(UI.idleControlbarTimeout);
         // We manipulate the anchor instead of the actual control
         // bar in order to avoid creating new a stacking group
-        document.getElementById('noVNC_control_bar_anchor')
-            .classList.remove("noVNC_idle");
+        document.getElementById('webvnc_control_bar_anchor')
+            .classList.remove("webvnc_idle");
         UI.idleControlbarTimeout = window.setTimeout(UI.idleControlbar, 2000);
     },
 
     idleControlbar() {
         // Don't fade if a child of the control bar has focus
-        if (document.getElementById('noVNC_control_bar')
+        if (document.getElementById('webvnc_control_bar')
             .contains(document.activeElement) && document.hasFocus()) {
             UI.activateControlbar();
             return;
         }
 
-        document.getElementById('noVNC_control_bar_anchor')
-            .classList.add("noVNC_idle");
+        document.getElementById('webvnc_control_bar_anchor')
+            .classList.add("webvnc_idle");
     },
 
     keepControlbar() {
@@ -553,20 +553,20 @@ const UI = {
     },
 
     openControlbar() {
-        document.getElementById('noVNC_control_bar')
-            .classList.add("noVNC_open");
+        document.getElementById('webvnc_control_bar')
+            .classList.add("webvnc_open");
     },
 
     closeControlbar() {
         UI.closeAllPanels();
-        document.getElementById('noVNC_control_bar')
-            .classList.remove("noVNC_open");
+        document.getElementById('webvnc_control_bar')
+            .classList.remove("webvnc_open");
         UI.rfb.focus();
     },
 
     toggleControlbar() {
-        if (document.getElementById('noVNC_control_bar')
-            .classList.contains("noVNC_open")) {
+        if (document.getElementById('webvnc_control_bar')
+            .classList.contains("webvnc_open")) {
             UI.closeControlbar();
         } else {
             UI.openControlbar();
@@ -574,28 +574,28 @@ const UI = {
     },
 
     getControlbarPos() {
-        const anchor = document.getElementById('noVNC_control_bar_anchor');
-        if (anchor.classList.contains('noVNC_right')) return 'right';
-        if (anchor.classList.contains('noVNC_top')) return 'top';
-        if (anchor.classList.contains('noVNC_bottom')) return 'bottom';
+        const anchor = document.getElementById('webvnc_control_bar_anchor');
+        if (anchor.classList.contains('webvnc_right')) return 'right';
+        if (anchor.classList.contains('webvnc_top')) return 'top';
+        if (anchor.classList.contains('webvnc_bottom')) return 'bottom';
         return 'left';
     },
 
     toggleControlbarSide(pos) {
         // Temporarily disable animation, if bar is displayed, to avoid weird
         // movement. The transitionend-event will not fire when display=none.
-        const bar = document.getElementById('noVNC_control_bar');
+        const bar = document.getElementById('webvnc_control_bar');
         const barDisplayStyle = window.getComputedStyle(bar).display;
         if (barDisplayStyle !== 'none') {
             bar.style.transitionDuration = '0s';
             bar.addEventListener('transitionend', () => bar.style.transitionDuration = '');
         }
 
-        const anchor = document.getElementById('noVNC_control_bar_anchor');
+        const anchor = document.getElementById('webvnc_control_bar_anchor');
 
-        anchor.classList.remove('noVNC_right', 'noVNC_top', 'noVNC_bottom');
+        anchor.classList.remove('webvnc_right', 'webvnc_top', 'webvnc_bottom');
         if (['right', 'top', 'bottom'].includes(pos)) {
-            anchor.classList.add(`noVNC_${pos}`);
+            anchor.classList.add(`webvnc_${pos}`);
         }
         WebUtil.writeSetting('controlbar_pos', pos);
 
@@ -609,18 +609,18 @@ const UI = {
     showControlbarHint(show, animate=true) {
         const getPos = element =>
             ['right', 'top', 'bottom'].find(pos =>
-                element.classList.contains(`noVNC_${pos}`)
+                element.classList.contains(`webvnc_${pos}`)
             ) ?? 'left';
 
-        const anchor = document.getElementById('noVNC_control_bar_anchor');
+        const anchor = document.getElementById('webvnc_control_bar_anchor');
         const anchorPos = getPos(anchor);
 
-        document.querySelectorAll('.noVNC_control_bar_hint').forEach((hint) => {
+        document.querySelectorAll('.webvnc_control_bar_hint').forEach((hint) => {
             const hintPos = getPos(hint.parentElement);
             const shouldShow = show && (hintPos !== anchorPos);
 
-            hint.classList.toggle('noVNC_active', shouldShow);
-            hint.classList.toggle('noVNC_notransition', !animate || !shouldShow);
+            hint.classList.toggle('webvnc_active', shouldShow);
+            hint.classList.toggle('webvnc_notransition', !animate || !shouldShow);
         });
     },
 
@@ -694,13 +694,13 @@ const UI = {
 
     // Move the handle but don't allow any position outside the bounds
     moveControlbarHandle(viewportRelativeCoord, isVertical) {
-        const handle = document.getElementById("noVNC_control_bar_handle");
+        const handle = document.getElementById("webvnc_control_bar_handle");
 
         const handleSpan = isVertical
             ? handle.getBoundingClientRect().height
             : handle.getBoundingClientRect().width;
 
-        const controlbarBounds = document.getElementById("noVNC_control_bar")
+        const controlbarBounds = document.getElementById("webvnc_control_bar")
             .getBoundingClientRect();
         const controlbarBoundsStart = isVertical
             ? controlbarBounds.top
@@ -748,7 +748,7 @@ const UI = {
     updateControlbarHandle() {
         // Since the control bar is fixed on the viewport and not the page,
         // the move function expects coordinates relative the the viewport.
-        const handle = document.getElementById("noVNC_control_bar_handle");
+        const handle = document.getElementById("webvnc_control_bar_handle");
         const handleBounds = handle.getBoundingClientRect();
 
         const controlBarPos = UI.getControlbarPos();
@@ -781,7 +781,7 @@ const UI = {
 
         const ptr = getPointerEvent(e);
 
-        const handle = document.getElementById("noVNC_control_bar_handle");
+        const handle = document.getElementById("webvnc_control_bar_handle");
         const bounds = handle.getBoundingClientRect();
 
         // Touch events have implicit capture
@@ -805,10 +805,10 @@ const UI = {
     },
 
     toggleExpander(e) {
-        if (this.classList.contains("noVNC_open")) {
-            this.classList.remove("noVNC_open");
+        if (this.classList.contains("webvnc_open")) {
+            this.classList.remove("webvnc_open");
         } else {
-            this.classList.add("noVNC_open");
+            this.classList.add("webvnc_open");
         }
     },
 
@@ -853,7 +853,7 @@ const UI = {
         // Update the settings control
         let value = UI.getSetting(name);
 
-        const ctrl = document.getElementById('noVNC_setting_' + name);
+        const ctrl = document.getElementById('webvnc_setting_' + name);
         if (ctrl === null) {
             return;
         }
@@ -874,7 +874,7 @@ const UI = {
 
     // Save control setting to cookie
     saveSetting(name) {
-        const ctrl = document.getElementById('noVNC_setting_' + name);
+        const ctrl = document.getElementById('webvnc_setting_' + name);
         let val;
         if (ctrl.type === 'checkbox') {
             val = ctrl.checked;
@@ -890,7 +890,7 @@ const UI = {
 
     // Read form control compatible setting from cookie
     getSetting(name) {
-        const ctrl = document.getElementById('noVNC_setting_' + name);
+        const ctrl = document.getElementById('webvnc_setting_' + name);
         let val = WebUtil.readSetting(name);
         if (typeof val !== 'undefined' && val !== null &&
             ctrl !== null && ctrl.type === 'checkbox') {
@@ -907,21 +907,21 @@ const UI = {
     // previous-sibling-selectors in CSS which are needed when we want to
     // disable the labels that belong to disabled input elements.
     disableSetting(name) {
-        const ctrl = document.getElementById('noVNC_setting_' + name);
+        const ctrl = document.getElementById('webvnc_setting_' + name);
         if (ctrl !== null) {
             ctrl.disabled = true;
             if (ctrl.label !== undefined) {
-                ctrl.label.classList.add('noVNC_disabled');
+                ctrl.label.classList.add('webvnc_disabled');
             }
         }
     },
 
     enableSetting(name) {
-        const ctrl = document.getElementById('noVNC_setting_' + name);
+        const ctrl = document.getElementById('webvnc_setting_' + name);
         if (ctrl !== null) {
             ctrl.disabled = false;
             if (ctrl.label !== undefined) {
-                ctrl.label.classList.remove('noVNC_disabled');
+                ctrl.label.classList.remove('webvnc_disabled');
             }
         }
     },
@@ -963,22 +963,22 @@ const UI = {
         UI.updateSetting('reconnect');
         UI.updateSetting('reconnect_delay');
 
-        document.getElementById('noVNC_settings')
-            .classList.add("noVNC_open");
-        document.getElementById('noVNC_settings_button')
-            .classList.add("noVNC_selected");
+        document.getElementById('webvnc_settings')
+            .classList.add("webvnc_open");
+        document.getElementById('webvnc_settings_button')
+            .classList.add("webvnc_selected");
     },
 
     closeSettingsPanel() {
-        document.getElementById('noVNC_settings')
-            .classList.remove("noVNC_open");
-        document.getElementById('noVNC_settings_button')
-            .classList.remove("noVNC_selected");
+        document.getElementById('webvnc_settings')
+            .classList.remove("webvnc_open");
+        document.getElementById('webvnc_settings_button')
+            .classList.remove("webvnc_selected");
     },
 
     toggleSettingsPanel() {
-        if (document.getElementById('noVNC_settings')
-            .classList.contains("noVNC_open")) {
+        if (document.getElementById('webvnc_settings')
+            .classList.contains("webvnc_open")) {
             UI.closeSettingsPanel();
         } else {
             UI.openSettingsPanel();
@@ -995,22 +995,22 @@ const UI = {
         UI.closeAllPanels();
         UI.openControlbar();
 
-        document.getElementById('noVNC_power')
-            .classList.add("noVNC_open");
-        document.getElementById('noVNC_power_button')
-            .classList.add("noVNC_selected");
+        document.getElementById('webvnc_power')
+            .classList.add("webvnc_open");
+        document.getElementById('webvnc_power_button')
+            .classList.add("webvnc_selected");
     },
 
     closePowerPanel() {
-        document.getElementById('noVNC_power')
-            .classList.remove("noVNC_open");
-        document.getElementById('noVNC_power_button')
-            .classList.remove("noVNC_selected");
+        document.getElementById('webvnc_power')
+            .classList.remove("webvnc_open");
+        document.getElementById('webvnc_power_button')
+            .classList.remove("webvnc_selected");
     },
 
     togglePowerPanel() {
-        if (document.getElementById('noVNC_power')
-            .classList.contains("noVNC_open")) {
+        if (document.getElementById('webvnc_power')
+            .classList.contains("webvnc_open")) {
             UI.closePowerPanel();
         } else {
             UI.openPowerPanel();
@@ -1022,11 +1022,11 @@ const UI = {
         if (UI.connected &&
             UI.rfb.capabilities.power &&
             !UI.rfb.viewOnly) {
-            document.getElementById('noVNC_power_button')
-                .classList.remove("noVNC_hidden");
+            document.getElementById('webvnc_power_button')
+                .classList.remove("webvnc_hidden");
         } else {
-            document.getElementById('noVNC_power_button')
-                .classList.add("noVNC_hidden");
+            document.getElementById('webvnc_power_button')
+                .classList.add("webvnc_hidden");
             // Close power panel if open
             UI.closePowerPanel();
         }
@@ -1042,22 +1042,22 @@ const UI = {
         UI.closeAllPanels();
         UI.openControlbar();
 
-        document.getElementById('noVNC_clipboard')
-            .classList.add("noVNC_open");
-        document.getElementById('noVNC_clipboard_button')
-            .classList.add("noVNC_selected");
+        document.getElementById('webvnc_clipboard')
+            .classList.add("webvnc_open");
+        document.getElementById('webvnc_clipboard_button')
+            .classList.add("webvnc_selected");
     },
 
     closeClipboardPanel() {
-        document.getElementById('noVNC_clipboard')
-            .classList.remove("noVNC_open");
-        document.getElementById('noVNC_clipboard_button')
-            .classList.remove("noVNC_selected");
+        document.getElementById('webvnc_clipboard')
+            .classList.remove("webvnc_open");
+        document.getElementById('webvnc_clipboard_button')
+            .classList.remove("webvnc_selected");
     },
 
     toggleClipboardPanel() {
-        if (document.getElementById('noVNC_clipboard')
-            .classList.contains("noVNC_open")) {
+        if (document.getElementById('webvnc_clipboard')
+            .classList.contains("webvnc_open")) {
             UI.closeClipboardPanel();
         } else {
             UI.openClipboardPanel();
@@ -1066,12 +1066,12 @@ const UI = {
 
     clipboardReceive(e) {
         Log.Debug(">> UI.clipboardReceive: " + e.detail.text.substr(0, 40) + "...");
-        document.getElementById('noVNC_clipboard_text').value = e.detail.text;
+        document.getElementById('webvnc_clipboard_text').value = e.detail.text;
         Log.Debug("<< UI.clipboardReceive");
     },
 
     clipboardSend() {
-        const text = document.getElementById('noVNC_clipboard_text').value;
+        const text = document.getElementById('webvnc_clipboard_text').value;
         Log.Debug(">> UI.clipboardSend: " + text.substr(0, 40) + "...");
         UI.rfb.clipboardPasteFrom(text);
         Log.Debug("<< UI.clipboardSend");
@@ -1090,10 +1090,6 @@ const UI = {
             return;
         }
 
-        const host = UI.getSetting('host');
-        const port = UI.getSetting('port');
-        const path = UI.getSetting('path');
-
         if (typeof password === 'undefined') {
             password = UI.getSetting('password');
             UI.reconnectPassword = password;
@@ -1107,35 +1103,26 @@ const UI = {
 
         UI.updateVisualState('connecting');
 
-        let url;
-
-        if (host) {
-            url = new URL("https://" + host);
-
-            url.protocol = UI.getSetting('encrypt') ? 'wss:' : 'ws:';
-            if (port) {
-                url.port = port;
-            }
-
-            // "./" is needed to force URL() to interpret the path-variable as
-            // a path and not as an URL. This is relevant if for example path
-            // starts with more than one "/", in which case it would be
-            // interpreted as a host name instead.
-            url = new URL("./" + path, url);
-        } else {
-            // Current (May 2024) browsers support relative WebSocket
-            // URLs natively, but we need to support older browsers for
-            // some time.
-            url = new URL(path, location.href);
-            url.protocol = (window.location.protocol === "https:") ? 'wss:' : 'ws:';
-        }
-
         if (UI.getSetting('keep_device_awake')) {
             UI.wakeLockManager.acquire();
         }
 
+        // 使用当前 origin 的 /websockify，避免旧设置把连接发往别处，
+        // 并附加登录会话令牌与角色供服务端鉴权。
+        const url = new URL("/websockify", window.location.origin);
+        url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        if (window.location.port) url.port = window.location.port;
+        const auth = window.__WEBVNC_AUTH;
+        if (auth && auth.getToken()) {
+            url.searchParams.set("auth", auth.getToken());
+        }
+        // 角色始终随连接传递：none 模式下观察者即使无令牌也能保持只读
+        if (auth && auth.getRole()) {
+            url.searchParams.set("role", auth.getRole());
+        }
+
         try {
-            UI.rfb = new RFB(document.getElementById('noVNC_container'),
+            UI.rfb = new RFB(document.getElementById('webvnc_container'),
                              url.href,
                              { shared: UI.getSetting('shared'),
                                repeaterID: UI.getSetting('repeaterID'),
@@ -1146,6 +1133,7 @@ const UI = {
             UI.showStatus(_("Failed to connect to server: ") + exc, 'error');
             return;
         }
+        UI.rfb.viewOnly = !!(auth && auth.getRole() === "observer");
 
         UI.rfb.addEventListener("connect", UI.connectFinished);
         UI.rfb.addEventListener("disconnect", UI.disconnectFinished);
@@ -1308,20 +1296,20 @@ const UI = {
             // The same fingerprint format as RealVNC
             fingerprint = Array.from(new Uint8Array(fingerprint).slice(0, 8)).map(
                 x => x.toString(16).padStart(2, '0')).join('-');
-            document.getElementById('noVNC_verify_server_dlg').classList.add('noVNC_open');
-            document.getElementById('noVNC_fingerprint').innerHTML = fingerprint;
+            document.getElementById('webvnc_verify_server_dlg').classList.add('webvnc_open');
+            document.getElementById('webvnc_fingerprint').innerHTML = fingerprint;
         }
     },
 
     approveServer(e) {
         e.preventDefault();
-        document.getElementById('noVNC_verify_server_dlg').classList.remove('noVNC_open');
+        document.getElementById('webvnc_verify_server_dlg').classList.remove('webvnc_open');
         UI.rfb.approveServer();
     },
 
     rejectServer(e) {
         e.preventDefault();
-        document.getElementById('noVNC_verify_server_dlg').classList.remove('noVNC_open');
+        document.getElementById('webvnc_verify_server_dlg').classList.remove('webvnc_open');
         UI.disconnect();
     },
 
@@ -1334,22 +1322,22 @@ const UI = {
     credentials(e) {
         // FIXME: handle more types
 
-        document.getElementById("noVNC_username_block").classList.remove("noVNC_hidden");
-        document.getElementById("noVNC_password_block").classList.remove("noVNC_hidden");
+        document.getElementById("webvnc_username_block").classList.remove("webvnc_hidden");
+        document.getElementById("webvnc_password_block").classList.remove("webvnc_hidden");
 
         let inputFocus = "none";
         if (e.detail.types.indexOf("username") === -1) {
-            document.getElementById("noVNC_username_block").classList.add("noVNC_hidden");
-        } else if (document.getElementById("noVNC_username_input").value === "") {
-            inputFocus = "noVNC_username_input";
+            document.getElementById("webvnc_username_block").classList.add("webvnc_hidden");
+        } else if (document.getElementById("webvnc_username_input").value === "") {
+            inputFocus = "webvnc_username_input";
         }
         if (e.detail.types.indexOf("password") === -1) {
-            document.getElementById("noVNC_password_block").classList.add("noVNC_hidden");
+            document.getElementById("webvnc_password_block").classList.add("webvnc_hidden");
         } else if (inputFocus === "none") {
-            inputFocus = "noVNC_password_input";
+            inputFocus = "webvnc_password_input";
         }
-        document.getElementById('noVNC_credentials_dlg')
-            .classList.add('noVNC_open');
+        document.getElementById('webvnc_credentials_dlg')
+            .classList.add('webvnc_open');
 
         setTimeout(() => document
             .getElementById(inputFocus).focus(), 100);
@@ -1362,18 +1350,18 @@ const UI = {
         // Prevent actually submitting the form
         e.preventDefault();
 
-        let inputElemUsername = document.getElementById('noVNC_username_input');
+        let inputElemUsername = document.getElementById('webvnc_username_input');
         const username = inputElemUsername.value;
 
-        let inputElemPassword = document.getElementById('noVNC_password_input');
+        let inputElemPassword = document.getElementById('webvnc_password_input');
         const password = inputElemPassword.value;
         // Clear the input after reading the password
         inputElemPassword.value = "";
 
         UI.rfb.sendCredentials({ username: username, password: password });
         UI.reconnectPassword = password;
-        document.getElementById('noVNC_credentials_dlg')
-            .classList.remove('noVNC_open');
+        document.getElementById('webvnc_credentials_dlg')
+            .classList.remove('webvnc_open');
     },
 
 /* ------^-------
@@ -1415,11 +1403,11 @@ const UI = {
             document.mozFullScreenElement || // currently working methods
             document.webkitFullscreenElement ||
             document.msFullscreenElement ) {
-            document.getElementById('noVNC_fullscreen_button')
-                .classList.add("noVNC_selected");
+            document.getElementById('webvnc_fullscreen_button')
+                .classList.add("webvnc_selected");
         } else {
-            document.getElementById('noVNC_fullscreen_button')
-                .classList.remove("noVNC_selected");
+            document.getElementById('webvnc_fullscreen_button')
+                .classList.remove("webvnc_selected");
         }
     },
 
@@ -1498,7 +1486,7 @@ const UI = {
     updateViewDrag() {
         if (!UI.connected) return;
 
-        const viewDragButton = document.getElementById('noVNC_view_drag_button');
+        const viewDragButton = document.getElementById('webvnc_view_drag_button');
 
         if ((!UI.rfb.clipViewport || !UI.rfb.clippingViewport) &&
             UI.rfb.dragViewport) {
@@ -1508,15 +1496,15 @@ const UI = {
         }
 
         if (UI.rfb.dragViewport) {
-            viewDragButton.classList.add("noVNC_selected");
+            viewDragButton.classList.add("webvnc_selected");
         } else {
-            viewDragButton.classList.remove("noVNC_selected");
+            viewDragButton.classList.remove("webvnc_selected");
         }
 
         if (UI.rfb.clipViewport) {
-            viewDragButton.classList.remove("noVNC_hidden");
+            viewDragButton.classList.remove("webvnc_hidden");
         } else {
-            viewDragButton.classList.add("noVNC_hidden");
+            viewDragButton.classList.add("webvnc_hidden");
         }
 
         viewDragButton.disabled = !UI.rfb.clippingViewport;
@@ -1555,7 +1543,7 @@ const UI = {
     showVirtualKeyboard() {
         if (!isTouchDevice) return;
 
-        const input = document.getElementById('noVNC_keyboardinput');
+        const input = document.getElementById('webvnc_keyboardinput');
 
         if (document.activeElement == input) return;
 
@@ -1573,7 +1561,7 @@ const UI = {
     hideVirtualKeyboard() {
         if (!isTouchDevice) return;
 
-        const input = document.getElementById('noVNC_keyboardinput');
+        const input = document.getElementById('webvnc_keyboardinput');
 
         if (document.activeElement != input) return;
 
@@ -1581,8 +1569,8 @@ const UI = {
     },
 
     toggleVirtualKeyboard() {
-        if (document.getElementById('noVNC_keyboard_button')
-            .classList.contains("noVNC_selected")) {
+        if (document.getElementById('webvnc_keyboard_button')
+            .classList.contains("webvnc_selected")) {
             UI.hideVirtualKeyboard();
         } else {
             UI.showVirtualKeyboard();
@@ -1590,23 +1578,23 @@ const UI = {
     },
 
     onfocusVirtualKeyboard(event) {
-        document.getElementById('noVNC_keyboard_button')
-            .classList.add("noVNC_selected");
+        document.getElementById('webvnc_keyboard_button')
+            .classList.add("webvnc_selected");
         if (UI.rfb) {
             UI.rfb.focusOnClick = false;
         }
     },
 
     onblurVirtualKeyboard(event) {
-        document.getElementById('noVNC_keyboard_button')
-            .classList.remove("noVNC_selected");
+        document.getElementById('webvnc_keyboard_button')
+            .classList.remove("webvnc_selected");
         if (UI.rfb) {
             UI.rfb.focusOnClick = true;
         }
     },
 
     keepVirtualKeyboard(event) {
-        const input = document.getElementById('noVNC_keyboardinput');
+        const input = document.getElementById('webvnc_keyboardinput');
 
         // Only prevent focus change if the virtual keyboard is active
         if (document.activeElement != input) {
@@ -1634,7 +1622,7 @@ const UI = {
     },
 
     keyboardinputReset() {
-        const kbi = document.getElementById('noVNC_keyboardinput');
+        const kbi = document.getElementById('webvnc_keyboardinput');
         kbi.value = new Array(UI.defaultKeyboardinputLen).join("_");
         UI.lastKeyboardinput = kbi.value;
     },
@@ -1720,22 +1708,22 @@ const UI = {
         UI.closeAllPanels();
         UI.openControlbar();
 
-        document.getElementById('noVNC_modifiers')
-            .classList.add("noVNC_open");
-        document.getElementById('noVNC_toggle_extra_keys_button')
-            .classList.add("noVNC_selected");
+        document.getElementById('webvnc_modifiers')
+            .classList.add("webvnc_open");
+        document.getElementById('webvnc_toggle_extra_keys_button')
+            .classList.add("webvnc_selected");
     },
 
     closeExtraKeys() {
-        document.getElementById('noVNC_modifiers')
-            .classList.remove("noVNC_open");
-        document.getElementById('noVNC_toggle_extra_keys_button')
-            .classList.remove("noVNC_selected");
+        document.getElementById('webvnc_modifiers')
+            .classList.remove("webvnc_open");
+        document.getElementById('webvnc_toggle_extra_keys_button')
+            .classList.remove("webvnc_selected");
     },
 
     toggleExtraKeys() {
-        if (document.getElementById('noVNC_modifiers')
-            .classList.contains("noVNC_open")) {
+        if (document.getElementById('webvnc_modifiers')
+            .classList.contains("webvnc_open")) {
             UI.closeExtraKeys();
         } else  {
             UI.openExtraKeys();
@@ -1751,35 +1739,35 @@ const UI = {
     },
 
     toggleCtrl() {
-        const btn = document.getElementById('noVNC_toggle_ctrl_button');
-        if (btn.classList.contains("noVNC_selected")) {
+        const btn = document.getElementById('webvnc_toggle_ctrl_button');
+        if (btn.classList.contains("webvnc_selected")) {
             UI.sendKey(KeyTable.XK_Control_L, "ControlLeft", false);
-            btn.classList.remove("noVNC_selected");
+            btn.classList.remove("webvnc_selected");
         } else {
             UI.sendKey(KeyTable.XK_Control_L, "ControlLeft", true);
-            btn.classList.add("noVNC_selected");
+            btn.classList.add("webvnc_selected");
         }
     },
 
     toggleWindows() {
-        const btn = document.getElementById('noVNC_toggle_windows_button');
-        if (btn.classList.contains("noVNC_selected")) {
+        const btn = document.getElementById('webvnc_toggle_windows_button');
+        if (btn.classList.contains("webvnc_selected")) {
             UI.sendKey(KeyTable.XK_Super_L, "MetaLeft", false);
-            btn.classList.remove("noVNC_selected");
+            btn.classList.remove("webvnc_selected");
         } else {
             UI.sendKey(KeyTable.XK_Super_L, "MetaLeft", true);
-            btn.classList.add("noVNC_selected");
+            btn.classList.add("webvnc_selected");
         }
     },
 
     toggleAlt() {
-        const btn = document.getElementById('noVNC_toggle_alt_button');
-        if (btn.classList.contains("noVNC_selected")) {
+        const btn = document.getElementById('webvnc_toggle_alt_button');
+        if (btn.classList.contains("webvnc_selected")) {
             UI.sendKey(KeyTable.XK_Alt_L, "AltLeft", false);
-            btn.classList.remove("noVNC_selected");
+            btn.classList.remove("webvnc_selected");
         } else {
             UI.sendKey(KeyTable.XK_Alt_L, "AltLeft", true);
-            btn.classList.add("noVNC_selected");
+            btn.classList.add("webvnc_selected");
         }
     },
 
@@ -1799,9 +1787,9 @@ const UI = {
         // if we focus the screen the virtual keyboard would be closed.
         // In this case we focus our special virtual keyboard input
         // element instead.
-        if (document.getElementById('noVNC_keyboard_button')
-            .classList.contains("noVNC_selected")) {
-            document.getElementById('noVNC_keyboardinput').focus();
+        if (document.getElementById('webvnc_keyboard_button')
+            .classList.contains("webvnc_selected")) {
+            document.getElementById('webvnc_keyboardinput').focus();
         } else {
             UI.rfb.focus();
         }
@@ -1824,19 +1812,19 @@ const UI = {
 
         // Hide input related buttons in view only mode
         if (UI.rfb.viewOnly) {
-            document.getElementById('noVNC_keyboard_button')
-                .classList.add('noVNC_hidden');
-            document.getElementById('noVNC_toggle_extra_keys_button')
-                .classList.add('noVNC_hidden');
-            document.getElementById('noVNC_clipboard_button')
-                .classList.add('noVNC_hidden');
+            document.getElementById('webvnc_keyboard_button')
+                .classList.add('webvnc_hidden');
+            document.getElementById('webvnc_toggle_extra_keys_button')
+                .classList.add('webvnc_hidden');
+            document.getElementById('webvnc_clipboard_button')
+                .classList.add('webvnc_hidden');
         } else {
-            document.getElementById('noVNC_keyboard_button')
-                .classList.remove('noVNC_hidden');
-            document.getElementById('noVNC_toggle_extra_keys_button')
-                .classList.remove('noVNC_hidden');
-            document.getElementById('noVNC_clipboard_button')
-                .classList.remove('noVNC_hidden');
+            document.getElementById('webvnc_keyboard_button')
+                .classList.remove('webvnc_hidden');
+            document.getElementById('webvnc_toggle_extra_keys_button')
+                .classList.remove('webvnc_hidden');
+            document.getElementById('webvnc_clipboard_button')
+                .classList.remove('webvnc_hidden');
         }
     },
 
@@ -1849,11 +1837,11 @@ const UI = {
                 }
                 if (support === 'denied' || support === 'available') {
                     UI.closeClipboardPanel();
-                    document.getElementById('noVNC_clipboard_button')
-                        .classList.add('noVNC_hidden');
-                    document.getElementById('noVNC_clipboard_button')
+                    document.getElementById('webvnc_clipboard_button')
+                        .classList.add('webvnc_hidden');
+                    document.getElementById('webvnc_clipboard_button')
                         .removeEventListener('click', UI.toggleClipboardPanel);
-                    document.getElementById('noVNC_clipboard_text')
+                    document.getElementById('webvnc_clipboard_text')
                         .removeEventListener('change', UI.clipboardSend);
                     if (UI.rfb) {
                         UI.rfb.removeEventListener('clipboard', UI.clipboardReceive);
@@ -1896,7 +1884,7 @@ const UI = {
 
     bell(e) {
         if (UI.getSetting('bell') === 'on') {
-            const promise = document.getElementById('noVNC_bell').play();
+            const promise = document.getElementById('webvnc_bell').play();
             // The standards disagree on the return value here
             if (promise) {
                 promise.catch((e) => {

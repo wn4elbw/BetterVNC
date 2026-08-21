@@ -12,7 +12,7 @@
     "New connection has been rejected with reason: ": "Новое соединение отклонено по причине: ",
     "New connection has been rejected": "Новое соединение отклонено",
     "Credentials are required": "Требуются учетные данные",
-    "noVNC encountered an error:": "Ошибка noVNC: ",
+    "WebVNC encountered an error:": "Ошибка WebVNC: ",
     "Hide/Show the control bar": "Скрыть/Показать контрольную панель",
     "Drag": "Переместить",
     "Move/Drag viewport": "Переместить окно",

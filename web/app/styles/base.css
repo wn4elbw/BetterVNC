@@ -1,7 +1,7 @@
 /*
- * noVNC base CSS
+ * webvnc base CSS
  * Copyright (C) 2019 The noVNC authors
- * noVNC is licensed under the MPL 2.0 (see LICENSE.txt)
+ * webvnc is licensed under the MPL 2.0 (see LICENSE.txt)
  * This file is licensed under the 2-Clause BSD license (see LICENSE.txt).
  */
 
@@ -22,11 +22,11 @@
 /*
  * State variables (set on :root):
  *
- * noVNC_loading: Page is still loading
- * noVNC_connecting: Connecting to server
- * noVNC_reconnecting: Re-establishing a connection
- * noVNC_connected: Connected to server (most common state)
- * noVNC_disconnecting: Disconnecting from server
+ * webvnc_loading: Page is still loading
+ * webvnc_connecting: Connecting to server
+ * webvnc_reconnecting: Re-establishing a connection
+ * webvnc_connected: Connected to server (most common state)
+ * webvnc_disconnecting: Disconnecting from server
  */
 
 :root {
@@ -49,11 +49,11 @@ html {
     height:100%;
 }
 
-.noVNC_only_touch.noVNC_hidden {
+.webvnc_only_touch.webvnc_hidden {
     display: none;
 }
 
-.noVNC_disabled {
+.webvnc_disabled {
     color: var(--novnc-grey);
 }
 
@@ -62,31 +62,31 @@ html {
  * ----------------------------------------
  */
 
-.noVNC_spinner {
+.webvnc_spinner {
     position: relative;
 }
-.noVNC_spinner, .noVNC_spinner::before, .noVNC_spinner::after {
+.webvnc_spinner, .webvnc_spinner::before, .webvnc_spinner::after {
     width: 10px;
     height: 10px;
     border-radius: 2px;
     box-shadow: -60px 10px 0 rgba(255, 255, 255, 0);
-    animation: noVNC_spinner 1.0s linear infinite;
+    animation: webvnc_spinner 1.0s linear infinite;
 }
-.noVNC_spinner::before {
+.webvnc_spinner::before {
     content: "";
     position: absolute;
     left: 0px;
     top: 0px;
     animation-delay: -0.1s;
 }
-.noVNC_spinner::after {
+.webvnc_spinner::after {
     content: "";
     position: absolute;
     top: 0px;
     left: 0px;
     animation-delay: 0.1s;
 }
-@keyframes noVNC_spinner {
+@keyframes webvnc_spinner {
     0% { box-shadow: -60px 10px 0 rgba(255, 255, 255, 0); width: 20px; }
     25% { box-shadow: 20px 10px 0 rgba(255, 255, 255, 1); width: 10px; }
     50% { box-shadow: 60px 10px 0 rgba(255, 255, 255, 0); width: 10px; }
@@ -97,7 +97,7 @@ html {
  * ----------------------------------------
  */
 
-.noVNC_center {
+.webvnc_center {
     /*
      * This is a workaround because webkit misrenders transforms and
      * uses non-integer coordinates, resulting in blurry content.
@@ -114,11 +114,11 @@ html {
     height: 100%;
     pointer-events: none;
 }
-.noVNC_center > * {
+.webvnc_center > * {
     pointer-events: auto;
 }
 
-.noVNC_crosscenter {
+.webvnc_crosscenter {
     display: flex !important;
     flex-direction: column;
     justify-content: center;
@@ -130,26 +130,26 @@ html {
     padding: 0 !important;
     pointer-events: none;
 }
-.noVNC_crosscenter > * {
+.webvnc_crosscenter > * {
     pointer-events: auto;
 }
-.noVNC_right .noVNC_crosscenter {
+.webvnc_right .webvnc_crosscenter {
     left: auto;
     right: 0;
 }
-.noVNC_top.noVNC_crosscenter,
-.noVNC_top .noVNC_crosscenter {
+.webvnc_top.webvnc_crosscenter,
+.webvnc_top .webvnc_crosscenter {
     flex-direction: row;
     width: 100%;
     height: auto;
 }
-.noVNC_bottom.noVNC_crosscenter,
-.noVNC_bottom .noVNC_crosscenter {
+.webvnc_bottom.webvnc_crosscenter,
+.webvnc_bottom .webvnc_crosscenter {
     flex-direction: row;
     width: 100%;
     height: auto;
 }
-.noVNC_bottom .noVNC_crosscenter {
+.webvnc_bottom .webvnc_crosscenter {
     top: auto;
     bottom: 0;
 }
@@ -159,7 +159,7 @@ html {
  * ----------------------------------------
  */
 
-.noVNC_connect_layer {
+.webvnc_connect_layer {
     z-index: 60;
 }
 
@@ -168,7 +168,7 @@ html {
  * ----------------------------------------
  */
 
-#noVNC_fallback_error {
+#webvnc_fallback_error {
     z-index: 1000;
     visibility: hidden;
     /* Put a dark background in front of everything but the error,
@@ -176,11 +176,11 @@ html {
     background: rgba(0, 0, 0, 0.8);
     pointer-events: all;
 }
-#noVNC_fallback_error.noVNC_open {
+#webvnc_fallback_error.webvnc_open {
     visibility: visible;
 }
 
-#noVNC_fallback_error > div {
+#webvnc_fallback_error > div {
     max-width: calc(100vw - 30px - 30px);
     max-height: calc(100vh - 30px - 30px);
     overflow: auto;
@@ -200,29 +200,29 @@ html {
     box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.5);
     background: rgba(200,55,55,0.8);
 }
-#noVNC_fallback_error.noVNC_open > div {
+#webvnc_fallback_error.webvnc_open > div {
     transform: translateY(0);
     opacity: 1;
 }
 
-#noVNC_fallback_errormsg {
+#webvnc_fallback_errormsg {
     font-weight: normal;
 }
 
-#noVNC_fallback_errormsg .noVNC_message {
+#webvnc_fallback_errormsg .webvnc_message {
     display: inline-block;
     text-align: left;
     font-family: monospace;
     white-space: pre-wrap;
 }
 
-#noVNC_fallback_error .noVNC_location {
+#webvnc_fallback_error .webvnc_location {
     font-style: italic;
     font-size: 0.8em;
     color: rgba(255, 255, 255, 0.8);
 }
 
-#noVNC_fallback_error .noVNC_stack {
+#webvnc_fallback_error .webvnc_stack {
     padding: 10px;
     margin: 10px;
     font-size: 0.8em;
@@ -239,7 +239,7 @@ html {
  * ----------------------------------------
  */
 
-#noVNC_control_bar_anchor {
+#webvnc_control_bar_anchor {
     /* The anchor is needed to get z-stacking to work */
     position: fixed;
     z-index: 10;
@@ -249,23 +249,23 @@ html {
     /* Edge misrenders animations wihthout this */
     transform: translateX(0);
 }
-:root.noVNC_connected #noVNC_control_bar_anchor.noVNC_idle {
+:root.webvnc_connected #webvnc_control_bar_anchor.webvnc_idle {
     opacity: 0.8;
 }
-#noVNC_control_bar_anchor:is(.noVNC_top, .noVNC_bottom) {
+#webvnc_control_bar_anchor:is(.webvnc_top, .webvnc_bottom) {
     /* Edge misrenders animations wihthout this */
     transform: translateY(0);
 }
-#noVNC_control_bar_anchor.noVNC_right {
+#webvnc_control_bar_anchor.webvnc_right {
     left: auto;
     right: 0;
 }
-#noVNC_control_bar_anchor.noVNC_bottom {
+#webvnc_control_bar_anchor.webvnc_bottom {
     top: auto;
     bottom: 0;
 }
 
-#noVNC_control_bar {
+#webvnc_control_bar {
     position: relative;
     left: -100%;
 
@@ -278,11 +278,11 @@ html {
     -webkit-user-select: none;
     -webkit-touch-callout: none; /* Disable iOS image long-press popup */
 }
-.noVNC_right #noVNC_control_bar {
+.webvnc_right #webvnc_control_bar {
     left: 100%;
     border-radius: 12px 0 0 12px;
 }
-.noVNC_top #noVNC_control_bar {
+.webvnc_top #webvnc_control_bar {
     left: auto;
     /* FIXME: We want to mirror the left and right modes here and use a
               relative top offset (-100%), but it doesn't resolve
@@ -290,7 +290,7 @@ html {
     top: -55px;
     border-radius: 0 0 12px 12px;
 }
-.noVNC_bottom #noVNC_control_bar {
+.webvnc_bottom #webvnc_control_bar {
     left: auto;
     /* FIXME: We want to mirror the left and right modes here and use a
               relative top offset (100%), but it doesn't resolve
@@ -298,15 +298,15 @@ html {
     top: 55px;
     border-radius: 12px 12px 0 0;
 }
-#noVNC_control_bar.noVNC_open {
+#webvnc_control_bar.webvnc_open {
     box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.5);
     left: 0;
 }
-:is(.noVNC_top, .noVNC_bottom) #noVNC_control_bar.noVNC_open {
+:is(.webvnc_top, .webvnc_bottom) #webvnc_control_bar.webvnc_open {
     left: auto;
     top: 0;
 }
-#noVNC_control_bar::before {
+#webvnc_control_bar::before {
     /* This extra element is to get a proper shadow */
     content: "";
     position: absolute;
@@ -316,24 +316,24 @@ html {
     left: -30px;
     transition: box-shadow 0.5s ease-in-out;
 }
-.noVNC_right #noVNC_control_bar::before {
+.webvnc_right #webvnc_control_bar::before {
     visibility: hidden;
 }
-.noVNC_top #noVNC_control_bar::before {
+.webvnc_top #webvnc_control_bar::before {
     height: 30px;
     width: 100%;
     top: -30px;
     bottom: auto;
 }
-.noVNC_bottom #noVNC_control_bar::before {
+.webvnc_bottom #webvnc_control_bar::before {
     visibility: hidden;
 }
 
-#noVNC_control_bar.noVNC_open::before {
+#webvnc_control_bar.webvnc_open::before {
     box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.5);
 }
 
-#noVNC_control_bar_handle {
+#webvnc_control_bar_handle {
     position: absolute;
     left: -15px;
     top: 0;
@@ -346,10 +346,10 @@ html {
     background-color: var(--novnc-darkblue);
     box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5);
 }
-:root:not(.noVNC_connected) #noVNC_control_bar_handle {
+:root:not(.webvnc_connected) #webvnc_control_bar_handle {
     display: none;
 }
-:is(.noVNC_top, .noVNC_bottom) #noVNC_control_bar_handle {
+:is(.webvnc_top, .webvnc_bottom) #webvnc_control_bar_handle {
     transform: translateX(35px);
     top: -15px;
     left: 0;
@@ -357,7 +357,7 @@ html {
     height: calc(100% + 30px);
 }
 
-#noVNC_control_bar_handle::before {
+#webvnc_control_bar_handle::before {
     content: "";
     background: url("../images/handle_bg.svg");
     background-repeat: no-repeat;
@@ -367,24 +367,24 @@ html {
     width: 15px;
     height: 50px;
 }
-.noVNC_right #noVNC_control_bar_handle::before {
+.webvnc_right #webvnc_control_bar_handle::before {
     left: 0;
     right: auto;
 }
-.noVNC_top #noVNC_control_bar_handle::before {
+.webvnc_top #webvnc_control_bar_handle::before {
     left: 0;
     right: auto;
     transform-origin: bottom left;
     transform: rotate(90deg) translateX(20px);
 }
-.noVNC_bottom #noVNC_control_bar_handle::before {
+.webvnc_bottom #webvnc_control_bar_handle::before {
     left: 0;
     right: auto;
     transform-origin: bottom left;
     transform: rotate(90deg) translateX(-50px);
 }
 
-#noVNC_control_bar_handle:after {
+#webvnc_control_bar_handle:after {
     content: "";
     transition: transform 0.5s ease-in-out;
     background: url("../images/handle.svg") no-repeat center;
@@ -397,19 +397,19 @@ html {
     height: 10px;
     transform-origin: center;
 }
-.noVNC_right #noVNC_control_bar_handle:after {
+.webvnc_right #webvnc_control_bar_handle:after {
     left: 3px;
     right: auto;
     transform: rotate(180deg);
 }
-.noVNC_top #noVNC_control_bar_handle:after {
+.webvnc_top #webvnc_control_bar_handle:after {
     left: 20px;
     right: auto;
     top: auto;
     bottom: 3px;
     transform: rotate(90deg);
 }
-.noVNC_bottom #noVNC_control_bar_handle:after {
+.webvnc_bottom #webvnc_control_bar_handle:after {
     left: 20px;
     right: auto;
     top: 3px;
@@ -417,21 +417,21 @@ html {
     transform: rotate(-90deg);
 }
 
-#noVNC_control_bar.noVNC_open #noVNC_control_bar_handle:after {
+#webvnc_control_bar.webvnc_open #webvnc_control_bar_handle:after {
     transform: translateX(1px) rotate(180deg);
 }
-.noVNC_right #noVNC_control_bar.noVNC_open #noVNC_control_bar_handle:after {
+.webvnc_right #webvnc_control_bar.webvnc_open #webvnc_control_bar_handle:after {
     transform: translateX(-1px);
 }
-.noVNC_top #noVNC_control_bar.noVNC_open #noVNC_control_bar_handle:after {
+.webvnc_top #webvnc_control_bar.webvnc_open #webvnc_control_bar_handle:after {
     transform: translateY(1px) rotate(-90deg);
 }
-.noVNC_bottom #noVNC_control_bar.noVNC_open #noVNC_control_bar_handle:after {
+.webvnc_bottom #webvnc_control_bar.webvnc_open #webvnc_control_bar_handle:after {
     transform: translateY(-1px) rotate(90deg);
 }
 
 /* Larger touch area for the handle, used when a touch screen is available */
-#noVNC_control_bar_handle div {
+#webvnc_control_bar_handle div {
     position: absolute;
     left: auto;
     right: -35px;
@@ -441,15 +441,15 @@ html {
     display: none;
 }
 @media (any-pointer: coarse) {
-    #noVNC_control_bar_handle div {
+    #webvnc_control_bar_handle div {
         display: initial;
     }
 }
-.noVNC_right #noVNC_control_bar_handle div {
+.webvnc_right #webvnc_control_bar_handle div {
     left: -35px;
     right: auto;
 }
-.noVNC_top #noVNC_control_bar_handle div {
+.webvnc_top #webvnc_control_bar_handle div {
     left: 0;
     right: auto;
     top: auto;
@@ -457,7 +457,7 @@ html {
     width: 100%;
     height: 50px;
 }
-.noVNC_bottom #noVNC_control_bar_handle div {
+.webvnc_bottom #webvnc_control_bar_handle div {
     left: 0;
     right: auto;
     top: -35px;
@@ -466,7 +466,7 @@ html {
     height: 50px;
 }
 
-#noVNC_control_bar > .noVNC_scroll {
+#webvnc_control_bar > .webvnc_scroll {
     max-height: 100vh; /* Chrome is buggy with 100% */
     overflow-x: hidden;
     overflow-y: auto;
@@ -477,7 +477,7 @@ html {
     align-items: center;
     gap: 10px 0;
 }
-:is(.noVNC_top, .noVNC_bottom) > #noVNC_control_bar > .noVNC_scroll {
+:is(.webvnc_top, .webvnc_bottom) > #webvnc_control_bar > .webvnc_scroll {
     max-width: 100vw; /* Chrome is buggy with 100% */
     overflow-x: auto;
     overflow-y: hidden;
@@ -486,24 +486,24 @@ html {
 }
 
 /* Control bar hint */
-.noVNC_hint_anchor {
+.webvnc_hint_anchor {
     position: fixed;
     left: -50px;
 }
-.noVNC_hint_anchor.noVNC_right {
+.webvnc_hint_anchor.webvnc_right {
     left: auto;
     right: -50px;
 }
-.noVNC_hint_anchor.noVNC_top {
+.webvnc_hint_anchor.webvnc_top {
     left: auto;
     top: -50px;
 }
-.noVNC_hint_anchor.noVNC_bottom {
+.webvnc_hint_anchor.webvnc_bottom {
     left: auto;
     top: auto;
     bottom: -50px;
 }
-.noVNC_control_bar_hint {
+.webvnc_control_bar_hint {
     width: 100px;
     height: 50%;
     max-height: 600px;
@@ -518,40 +518,40 @@ html {
     border-radius: 12px;
     transition-delay: 0s;
 }
-:is(.noVNC_top, .noVNC_bottom) .noVNC_control_bar_hint {
+:is(.webvnc_top, .webvnc_bottom) .webvnc_control_bar_hint {
     width: 50%;
     height: 100px;
     max-width: 600px;
     max-height: none;
 }
-.noVNC_control_bar_hint.noVNC_active {
+.webvnc_control_bar_hint.webvnc_active {
     visibility: visible;
     opacity: 1;
     transition-delay: 0.2s;
     transform: scale(1);
 }
-.noVNC_control_bar_hint.noVNC_notransition {
+.webvnc_control_bar_hint.webvnc_notransition {
     transition: none !important;
 }
 
 /* Control bar buttons */
-#noVNC_control_bar .noVNC_button {
+#webvnc_control_bar .webvnc_button {
     min-width: unset;
     padding: 4px 4px;
     border:1px solid rgba(255, 255, 255, 0.2);
     border-radius: 6px;
     background-color: transparent;
 }
-#noVNC_control_bar .noVNC_button.noVNC_selected {
+#webvnc_control_bar .webvnc_button.webvnc_selected {
     border-color: rgba(0, 0, 0, 0.8);
     background-color: rgba(0, 0, 0, 0.5);
 }
-#noVNC_control_bar .noVNC_button.noVNC_hidden {
+#webvnc_control_bar .webvnc_button.webvnc_hidden {
     display: none !important;
 }
 
 /* Panels */
-.noVNC_panel {
+.webvnc_panel {
     transform: translateX(25px);
 
     transition: 0.5s ease-in-out;
@@ -573,64 +573,64 @@ html {
     border: 2px solid #E0E0E0;
     box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.5);
 }
-.noVNC_panel.noVNC_open {
+.webvnc_panel.webvnc_open {
     visibility: visible;
     opacity: 1;
     transform: translateX(75px);
 }
-.noVNC_right .noVNC_panel {
+.webvnc_right .webvnc_panel {
     transform: translateX(-25px);
 }
-.noVNC_right .noVNC_panel.noVNC_open {
+.webvnc_right .webvnc_panel.webvnc_open {
     transform: translateX(-75px);
 }
-.noVNC_top .noVNC_panel {
+.webvnc_top .webvnc_panel {
     transform: translateY(25px);
 }
-.noVNC_top .noVNC_panel.noVNC_open {
+.webvnc_top .webvnc_panel.webvnc_open {
     transform: translateY(75px);
 }
-.noVNC_bottom .noVNC_panel {
+.webvnc_bottom .webvnc_panel {
     transform: translateY(-25px);
 }
-.noVNC_bottom .noVNC_panel.noVNC_open {
+.webvnc_bottom .webvnc_panel.webvnc_open {
     transform: translateY(-75px);
 }
 
-.noVNC_panel > * {
+.webvnc_panel > * {
     display: block;
     margin: 10px auto;
 }
-.noVNC_panel > *:first-child {
+.webvnc_panel > *:first-child {
     margin-top: 0 !important;
 }
-.noVNC_panel > *:last-child {
+.webvnc_panel > *:last-child {
     margin-bottom: 0 !important;
 }
 
-.noVNC_panel hr {
+.webvnc_panel hr {
     border: none;
     border-top: 1px solid var(--novnc-lightgrey);
     width: 100%; /* <hr> inside a flexbox will otherwise be 0px wide */
 }
 
-.noVNC_panel label {
+.webvnc_panel label {
     display: block;
     white-space: nowrap;
     margin: 5px;
 }
 @media (max-width: 540px) {
     /* Allow wrapping on small screens */
-    .noVNC_panel label {
+    .webvnc_panel label {
         white-space: unset;
     }
 }
 
-.noVNC_panel li {
+.webvnc_panel li {
     margin: 5px;
 }
 
-.noVNC_panel .noVNC_heading {
+.webvnc_panel .webvnc_heading {
     background-color: var(--novnc-blue);
     border-radius: 6px;
     padding: 5px 8px;
@@ -644,60 +644,60 @@ html {
     font-weight: bold;
     white-space: nowrap;
 }
-.noVNC_panel .noVNC_heading img {
+.webvnc_panel .webvnc_heading img {
     vertical-align: bottom;
 }
 
-.noVNC_panel form {
+.webvnc_panel form {
     display: flex;
     flex-direction: column;
     gap: 12px
 }
 
-.noVNC_panel .button_row {
+.webvnc_panel .button_row {
     margin-top: 10px;
     display: flex;
     gap: 10px;
     justify-content: space-between;
 }
-.noVNC_panel .button_row *:only-child {
+.webvnc_panel .button_row *:only-child {
     margin-left: auto; /* Align single buttons to the right */
 }
 
 /* Expanders */
-.noVNC_expander {
+.webvnc_expander {
     cursor: pointer;
 }
-.noVNC_expander::before {
+.webvnc_expander::before {
     content: url("../images/expander.svg");
     display: inline-block;
     margin-right: 5px;
     transition: 0.2s ease-in-out;
 }
-.noVNC_expander.noVNC_open::before {
+.webvnc_expander.webvnc_open::before {
     transform: rotateZ(90deg);
 }
-.noVNC_expander ~ * {
+.webvnc_expander ~ * {
     margin: 5px;
     margin-left: 10px;
     padding: 5px;
     background: rgba(0, 0, 0, 0.04);
     border-radius: 6px;
 }
-.noVNC_expander:not(.noVNC_open) ~ * {
+.webvnc_expander:not(.webvnc_open) ~ * {
     display: none;
 }
 
 /* Control bar content */
 
-#noVNC_control_bar .noVNC_logo {
+#webvnc_control_bar .webvnc_logo {
     display: block;
     max-width: 35px;
     max-height: 35px;
     object-fit: contain;
 }
 
-.noVNC_logo + hr {
+.webvnc_logo + hr {
     /* Remove all but top border */
     border: none;
     border-top: 1px solid rgba(255, 255, 255, 0.2);
@@ -705,7 +705,7 @@ html {
     height: 1px;
     margin: 0;
 }
-:is(.noVNC_top, .noVNC_bottom) .noVNC_logo + hr {
+:is(.webvnc_top, .webvnc_bottom) .webvnc_logo + hr {
     /* Remove all but left border */
     border-left: 1px solid rgba(255, 255, 255, 0.2);
     border-top: none;
@@ -713,12 +713,12 @@ html {
     height: 35px;
 }
 
-:root:not(.noVNC_connected) #noVNC_view_drag_button {
+:root:not(.webvnc_connected) #webvnc_view_drag_button {
     display: none;
 }
 
-/* noVNC Touch Device only buttons */
-:root:not(.noVNC_connected) #noVNC_keyboard_button {
+/* webvnc Touch Device only buttons */
+:root:not(.webvnc_connected) #webvnc_keyboard_button {
     display: none;
 }
 @media not all and (any-pointer: coarse) {
@@ -726,17 +726,17 @@ html {
               keyboards available. Hopefully we can get a media query
               for this:
               https://github.com/w3c/csswg-drafts/issues/3871 */
-    :root.noVNC_connected #noVNC_keyboard_button {
+    :root.webvnc_connected #webvnc_keyboard_button {
         display: none;
     }
 }
 
 /* Extra manual keys */
-:root:not(.noVNC_connected) #noVNC_toggle_extra_keys_button {
+:root:not(.webvnc_connected) #webvnc_toggle_extra_keys_button {
     display: none;
 }
 
-#noVNC_modifiers {
+#webvnc_modifiers {
     background-color: var(--novnc-darkgrey);
     border: none;
     padding: 10px;
@@ -746,33 +746,33 @@ html {
     align-items: center;
     gap: 10px 0;
 }
-#noVNC_modifiers > * {
+#webvnc_modifiers > * {
     margin: 0;
 }
-:is(.noVNC_top, .noVNC_bottom) #noVNC_modifiers {
+:is(.webvnc_top, .webvnc_bottom) #webvnc_modifiers {
     flex-direction: row;
     gap: 0 10px;
 }
 
 /* Shutdown/Reboot */
-:root:not(.noVNC_connected) #noVNC_power_button {
+:root:not(.webvnc_connected) #webvnc_power_button {
     display: none;
 }
-#noVNC_power {
+#webvnc_power {
 }
-#noVNC_power_buttons {
+#webvnc_power_buttons {
     display: none;
 }
 
-#noVNC_power input[type=button] {
+#webvnc_power input[type=button] {
     width: 100%;
 }
 
 /* Clipboard */
-:root:not(.noVNC_connected) #noVNC_clipboard_button {
+:root:not(.webvnc_connected) #webvnc_clipboard_button {
     display: none;
 }
-#noVNC_clipboard_text {
+#webvnc_clipboard_text {
     width: 360px;
     min-width: 150px;
     height: 160px;
@@ -785,40 +785,40 @@ html {
 }
 
 /* Settings */
-#noVNC_settings {
+#webvnc_settings {
 }
-#noVNC_settings ul {
+#webvnc_settings ul {
     list-style: none;
     padding: 0px;
 }
-#noVNC_settings button,
-#noVNC_settings select,
-#noVNC_settings textarea,
-#noVNC_settings input:not([type=checkbox]):not([type=radio]) {
+#webvnc_settings button,
+#webvnc_settings select,
+#webvnc_settings textarea,
+#webvnc_settings input:not([type=checkbox]):not([type=radio]) {
     margin-left: 6px;
     /* Prevent inputs in settings from being too wide */
     max-width: calc(100% - 6px - var(--input-xpadding) * 2);
 }
 
-#noVNC_setting_port {
+#webvnc_setting_port {
     width: 80px;
 }
-#noVNC_setting_path {
+#webvnc_setting_path {
     width: 100px;
 }
 
 /* Version */
 
-.noVNC_version_wrapper {
+.webvnc_version_wrapper {
     font-size: small;
 }
 
-.noVNC_version {
+.webvnc_version {
     margin-left: 1rem;
 }
 
 /* Connection controls */
-:root:not(.noVNC_connected) #noVNC_disconnect_button {
+:root:not(.webvnc_connected) #webvnc_disconnect_button {
     display: none;
 }
 
@@ -827,7 +827,7 @@ html {
  * ----------------------------------------
  */
 
-#noVNC_status {
+#webvnc_status {
     position: fixed;
     top: 0;
     left: 0;
@@ -855,13 +855,13 @@ html {
 
     border-bottom: 1px solid rgba(0, 0, 0, 0.9);
 }
-#noVNC_status.noVNC_open {
+#webvnc_status.webvnc_open {
     transform: translateY(0);
     visibility: visible;
     opacity: 1;
 }
 
-#noVNC_status::before {
+#webvnc_status::before {
     content: "";
     display: inline-block;
     width: 25px;
@@ -869,22 +869,22 @@ html {
     margin-right: 5px;
 }
 
-#noVNC_status.noVNC_status_normal {
+#webvnc_status.webvnc_status_normal {
     background: rgba(128,128,128,0.9);
 }
-#noVNC_status.noVNC_status_normal::before {
+#webvnc_status.webvnc_status_normal::before {
     content: url("../images/info.svg") " ";
 }
-#noVNC_status.noVNC_status_error {
+#webvnc_status.webvnc_status_error {
     background: rgba(200,55,55,0.9);
 }
-#noVNC_status.noVNC_status_error::before {
+#webvnc_status.webvnc_status_error::before {
     content: url("../images/error.svg") " ";
 }
-#noVNC_status.noVNC_status_warn {
+#webvnc_status.webvnc_status_warn {
     background: rgba(180,180,30,0.9);
 }
-#noVNC_status.noVNC_status_warn::before {
+#webvnc_status.webvnc_status_warn::before {
     content: url("../images/warning.svg") " ";
 }
 
@@ -893,15 +893,15 @@ html {
  * ----------------------------------------
  */
 
-#noVNC_verify_server_dlg {
+#webvnc_verify_server_dlg {
     position: relative;
 
     transform: translateY(-50px);
 }
-#noVNC_verify_server_dlg.noVNC_open {
+#webvnc_verify_server_dlg.webvnc_open {
     transform: translateY(0);
 }
-#noVNC_fingerprint_block {
+#webvnc_fingerprint_block {
     margin: 10px;
 }
 
@@ -910,16 +910,16 @@ html {
  * ----------------------------------------
  */
 
-#noVNC_credentials_dlg {
+#webvnc_credentials_dlg {
     position: relative;
 
     transform: translateY(-50px);
 }
-#noVNC_credentials_dlg.noVNC_open {
+#webvnc_credentials_dlg.webvnc_open {
     transform: translateY(0);
 }
-#noVNC_username_block.noVNC_hidden,
-#noVNC_password_block.noVNC_hidden {
+#webvnc_username_block.webvnc_hidden,
+#webvnc_password_block.webvnc_hidden {
     display: none;
 }
 
@@ -930,7 +930,7 @@ html {
  */
 
 /* Transition screen */
-#noVNC_transition {
+#webvnc_transition {
     transition: 0.5s ease-in-out;
 
     display: flex;
@@ -952,22 +952,22 @@ html {
     justify-content: center;
     flex-direction: column;
 }
-:root.noVNC_loading #noVNC_transition,
-:root.noVNC_connecting #noVNC_transition,
-:root.noVNC_disconnecting #noVNC_transition,
-:root.noVNC_reconnecting #noVNC_transition {
+:root.webvnc_loading #webvnc_transition,
+:root.webvnc_connecting #webvnc_transition,
+:root.webvnc_disconnecting #webvnc_transition,
+:root.webvnc_reconnecting #webvnc_transition {
     opacity: 1;
     visibility: visible;
 }
-:root:not(.noVNC_reconnecting) #noVNC_cancel_reconnect_button {
+:root:not(.webvnc_reconnecting) #webvnc_cancel_reconnect_button {
     display: none;
 }
-#noVNC_transition_text {
+#webvnc_transition_text {
     font-size: 1.5em;
 }
 
 /* Main container */
-#noVNC_container {
+#webvnc_container {
     width: 100%;
     height: 100%;
     background-color: #313131;
@@ -981,7 +981,7 @@ html {
     -webkit-user-select: none;
 }
 
-#noVNC_keyboardinput {
+#webvnc_keyboardinput {
     width: 1px;
     height: 1px;
     background-color: #fff;
@@ -993,7 +993,7 @@ html {
     ime-mode: disabled;
 }
 
-/*Default noVNC logo.*/
+/*Default webvnc logo.*/
 /* From: http://fonts.googleapis.com/css?family=Orbitron:700 */
 @font-face {
     font-family: 'Orbitron';
@@ -1003,17 +1003,17 @@ html {
                      url('Orbitron700.ttf') format('truetype');
 }
 
-.noVNC_logo {
+.webvnc_logo {
     color: var(--novnc-yellow);
     font-family: 'Orbitron', 'OrbitronTTF', sans-serif;
     line-height: 0.9;
     text-shadow: 0.1em 0.1em 0 black;
 }
-.noVNC_logo span{
+.webvnc_logo span{
     color: var(--novnc-green);
 }
 
-#noVNC_bell {
+#webvnc_bell {
     display: none;
 }
 
@@ -1023,19 +1023,19 @@ html {
  */
 
 @media screen and (max-width: 640px){
-    #noVNC_logo {
+    #webvnc_logo {
         font-size: 150px;
     }
 }
 
 @media screen and (min-width: 321px) and (max-width: 480px) {
-    #noVNC_logo {
+    #webvnc_logo {
         font-size: 110px;
     }
 }
 
 @media screen and (max-width: 320px) {
-    #noVNC_logo {
+    #webvnc_logo {
         font-size: 90px;
     }
 }

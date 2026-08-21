@@ -8,7 +8,7 @@
     "Reconnecting...": "Reconectando...",
     "Password is required": "La contraseña es obligatoria",
     "Disconnect timeout": "Tiempo de desconexión agotado",
-    "noVNC encountered an error:": "noVNC ha encontrado un error:",
+    "WebVNC encountered an error:": "WebVNC ha encontrado un error:",
     "Hide/Show the control bar": "Ocultar/Mostrar la barra de control",
     "Move/Drag viewport": "Mover/Arrastrar la ventana",
     "viewport drag": "Arrastrar la ventana",

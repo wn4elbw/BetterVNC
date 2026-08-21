@@ -13,7 +13,7 @@
     "New connection has been rejected with reason: ": "Nieuwe verbinding is geweigerd met de volgende reden: ",
     "New connection has been rejected": "Nieuwe verbinding is geweigerd",
     "Credentials are required": "Inloggegevens zijn nodig",
-    "noVNC encountered an error:": "noVNC heeft een fout bemerkt:",
+    "WebVNC encountered an error:": "WebVNC heeft een fout bemerkt:",
     "Hide/Show the control bar": "Verberg/Toon de bedieningsbalk",
     "Drag": "Sleep",
     "Move/Drag viewport": "Verplaats/Versleep Kijkvenster",

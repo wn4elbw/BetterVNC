@@ -12,7 +12,7 @@
     "New connection has been rejected with reason: ": "La nuova connessione è stata rifiutata con motivo: ",
     "New connection has been rejected": "La nuova connessione è stata rifiutata",
     "Credentials are required": "Le credenziali sono obbligatorie",
-    "noVNC encountered an error:": "noVNC ha riscontrato un errore:",
+    "WebVNC encountered an error:": "WebVNC ha riscontrato un errore:",
     "Hide/Show the control bar": "Nascondi/Mostra la barra di controllo",
     "Keyboard": "Tastiera",
     "Show keyboard": "Mostra tastiera",

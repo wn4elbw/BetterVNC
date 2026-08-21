@@ -6,7 +6,7 @@
 /* 一象限：远程屏幕（预览框） */
 #q_screen { position: absolute; left: 346px; top: 0; right: 0; bottom: 230px; background: #1a1b20; }
 
-#q_screen #noVNC_container { width: 100%; height: 100%; }
+#q_screen #webvnc_container { width: 100%; height: 100%; }
 
 /* 屏幕浮动工具按钮（网页全屏 / 全屏网页，右下角） */
 #screen_tools {

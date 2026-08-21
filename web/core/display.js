@@ -1,5 +1,5 @@
 /*
- * noVNC: HTML5 VNC client
+ * webvnc: HTML5 VNC client
  * Copyright (C) 2019 The noVNC authors
  * Licensed under MPL 2.0 (see LICENSE.txt)
  *
@@ -491,8 +491,8 @@ export default class Display {
     _resumeRenderQ() {
         // "this" is the object that is ready, not the
         // display object
-        this.removeEventListener('load', this._noVNCDisplay._resumeRenderQ);
-        this._noVNCDisplay._scanRenderQ();
+        this.removeEventListener('load', this._webvncDisplay._resumeRenderQ);
+        this._webvncDisplay._scanRenderQ();
     }
 
     _scanRenderQ() {
@@ -525,7 +525,7 @@ export default class Display {
                         // away, rather than ballooning
                         a.img.src = "";
                     } else {
-                        a.img._noVNCDisplay = this;
+                        a.img._webvncDisplay = this;
                         a.img.addEventListener('load', this._resumeRenderQ);
                         // We need to wait for this image to 'load'
                         // to keep things in-order

@@ -13,7 +13,7 @@
     "New connection has been rejected with reason: ": "Az új kapcsolat elutasítva, indok: ",
     "New connection has been rejected": "Az új kapcsolat elutasítva",
     "Credentials are required": "Hitelesítő adatok szükségesek",
-    "noVNC encountered an error:": "A noVNC hibát észlelt:",
+    "WebVNC encountered an error:": "A WebVNC hibát észlelt:",
     "Hide/Show the control bar": "Vezérlősáv elrejtése/megjelenítése",
     "Drag": "Húzás",
     "Move/Drag viewport": "Nézet mozgatása/húzása",

@@ -1,5 +1,5 @@
 /*
- * noVNC: HTML5 VNC client
+ * webvnc: HTML5 VNC client
  * Copyright (C) 2020 The noVNC authors
  * Licensed under MPL 2.0 (see LICENSE.txt)
  *
@@ -100,7 +100,7 @@ export default class RFB extends EventTargetMixin {
         // We rely on modern APIs which might not be available in an
         // insecure context
         if (!window.isSecureContext) {
-            Log.Error("noVNC requires a secure context (TLS). Expect crashes!");
+            Log.Error("webvnc requires a secure context (TLS). Expect crashes!");
         }
 
         super();

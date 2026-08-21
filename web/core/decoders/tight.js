@@ -1,5 +1,5 @@
 /*
- * noVNC: HTML5 VNC client
+ * webvnc: HTML5 VNC client
  * Copyright (C) 2019 The noVNC authors
  * (c) 2012 Michael Tinglof, Joe Balaz, Les Piech (Mercuri.ca)
  * Licensed under MPL 2.0 (see LICENSE.txt)

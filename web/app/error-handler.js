@@ -1,5 +1,5 @@
 /*
- * noVNC: HTML5 VNC client
+ * WebVNC: HTML5 VNC client
  * Copyright (C) 2019 The noVNC authors
  * Licensed under MPL 2.0 (see LICENSE.txt)
  *
@@ -9,7 +9,7 @@
 // Fallback for all uncaught errors
 function handleError(event, err) {
     try {
-        const msg = document.getElementById('noVNC_fallback_errormsg');
+        const msg = document.getElementById('webvnc_fallback_errormsg');
 
         // Work around Firefox bug:
         // https://bugzilla.mozilla.org/show_bug.cgi?id=1685038
@@ -23,13 +23,13 @@ function handleError(event, err) {
         }
 
         let div = document.createElement("div");
-        div.classList.add('noVNC_message');
+        div.classList.add('webvnc_message');
         div.appendChild(document.createTextNode(event.message));
         msg.appendChild(div);
 
         if (event.filename) {
             div = document.createElement("div");
-            div.className = 'noVNC_location';
+            div.className = 'webvnc_location';
             let text = event.filename;
             if (event.lineno !== undefined) {
                 text += ":" + event.lineno;
@@ -43,16 +43,16 @@ function handleError(event, err) {
 
         if (err && err.stack) {
             div = document.createElement("div");
-            div.className = 'noVNC_stack';
+            div.className = 'webvnc_stack';
             div.appendChild(document.createTextNode(err.stack));
             msg.appendChild(div);
         }
 
-        document.getElementById('noVNC_fallback_error')
-            .classList.add("noVNC_open");
+        document.getElementById('webvnc_fallback_error')
+            .classList.add("webvnc_open");
 
     } catch (exc) {
-        document.write("noVNC encountered an error.");
+        document.write("WebVNC encountered an error.");
     }
 
     // Try to disable keyboard interaction, best effort

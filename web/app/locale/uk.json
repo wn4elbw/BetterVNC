@@ -14,7 +14,7 @@
     "New connection has been rejected": "Нове з'єднання відхилено",
     "Are you sure you want to disconnect the session?": "Точно від'єднати сеанс?",
     "Credentials are required": "Треба особові дані",
-    "noVNC encountered an error:": "Помилка noVNC:",
+    "WebVNC encountered an error:": "Помилка WebVNC:",
     "Hide/Show the control bar": "Сховати/показати панель керування",
     "Drag": "Посунути",
     "Move/Drag viewport": "Змістити область огляду",

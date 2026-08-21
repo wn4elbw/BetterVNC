@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh_CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebVNC 远程桌面</title>
+    <style>
+        :root {
+            --bg: #14161a;
+            --panel: #2b2e33;
+            --fg: #ffffff;
+            --muted: #b6bac2;
+            --accent: #636a75;
+            --border: #4a4e56;
+            --err: #e5534b;
+            --input-bg: #1a1b20;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .login-card {
+            width: min(380px, calc(100vw - 32px));
+            padding: 28px 24px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .login-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .login-subtitle {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+        .device-name {
+            font-size: 11px;
+            color: var(--accent);
+            word-break: break-all;
+            margin-bottom: 16px;
+            padding: 6px 10px;
+            background: var(--input-bg);
+            border-radius: 4px;
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-label {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--fg);
+            font-family: inherit;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .form-input:focus {
+            border-color: var(--accent);
+        }
+        .btn {
+            width: 100%;
+            padding: 9px;
+            font-size: 14px;
+            font-family: inherit;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid var(--accent);
+            transition: opacity .2s;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: var(--fg);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--muted);
+            margin-top: 8px;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .error-msg {
+            color: var(--err);
+            font-size: 12px;
+            margin-top: 10px;
+            min-height: 18px;
+            text-align: center;
+        }
+        .remember-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 14px;
+            font-size: 12px;
+            color: var(--muted);
+            cursor: pointer;
+            user-select: none;
+        }
+        .remember-row input[type="checkbox"] {
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            color: var(--muted);
+            font-size: 13px;
+            padding: 12px 0;
+        }
+        .loading.active { display: block; }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="login-title">WebVNC 远程桌面</div>
+        <div class="login-subtitle" id="login_subtitle"></div>
+        <div class="device-name" id="device_name"></div>
+
+        <div id="login_form">
+            <div class="form-group">
+                <label class="form-label" for="login_password">管理员密码</label>
+                <input class="form-input" id="login_password" type="password"
+                       autocomplete="off" placeholder="请输入管理员密码">
+            </div>
+            <label class="remember-row" id="remember_row">
+                <input type="checkbox" id="login_remember">
+                <span>记住我（下次自动填写密码）</span>
+            </label>
+            <button class="btn btn-primary" id="login_admin_btn">管理员登录</button>
+            <button class="btn btn-secondary" id="login_observer_btn">旁观者查看（只读）</button>
+        </div>
+
+        <div class="loading" id="login_loading">
+            <span class="spinner"></span>正在验证...
+        </div>
+
+        <div class="error-msg" id="login_error"></div>
+    </div>
+
+    <script>
+        (function () {
+            const $ = (id) => document.getElementById(id);
+            const pageId = (window.crypto && crypto.randomUUID) ?
+                crypto.randomUUID() : String(Date.now()) + Math.random().toString(36);
+
+            function getDeviceId() {
+                let did = localStorage.getItem("wv_device_id");
+                if (!did) {
+                    did = crypto.randomUUID ? crypto.randomUUID() :
+                        String(Date.now()) + Math.random().toString(36);
+                    localStorage.setItem("wv_device_id", did);
+                }
+                return did;
+            }
+
+            function loadSavedPassword() {
+                const did = getDeviceId();
+                const saved = localStorage.getItem("wv_remember_" + did);
+                if (saved) {
+                    $("login_password").value = saved;
+                    $("login_remember").checked = true;
+                }
+            }
+
+            function savePassword(password) {
+                if ($("login_remember").checked) {
+                    const did = getDeviceId();
+                    localStorage.setItem("wv_remember_" + did, password);
+                } else {
+                    const did = getDeviceId();
+                    localStorage.removeItem("wv_remember_" + did);
+                }
+            }
+
+            function clearSavedPassword() {
+                const did = getDeviceId();
+                localStorage.removeItem("wv_remember_" + did);
+            }
+
+            function showError(msg) {
+                $("login_error").textContent = msg;
+                $("login_loading").classList.remove("active");
+                $("login_form").style.display = "block";
+            }
+
+            async function login(role) {
+                const password = $("login_password").value;
+                $("login_form").style.display = "none";
+                $("login_loading").classList.add("active");
+                $("login_error").textContent = "";
+
+                try {
+                    const resp = await fetch("/api/auth/login", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ password, role, page_id: pageId }),
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        clearSavedPassword();
+                        const errText = {
+                            "admin already online": "已有管理员登录，同一时间仅允许一个管理员",
+                            "wrong password": "密码错误",
+                            "observer disabled": "旁观者功能已关闭",
+                        };
+                        showError(errText[data.error] || "登录失败");
+                        return;
+                    }
+                    savePassword(password);
+                    const target = role === "observer" ?
+                        "/observer.html?auth=" + encodeURIComponent(data.token) :
+                        "/vnc.html?auth=" + encodeURIComponent(data.token);
+                    window.location.href = target;
+                } catch (err) {
+                    clearSavedPassword();
+                    showError("登录请求失败，请刷新页面重试");
+                }
+            }
+
+            async function init() {
+                $("device_name").textContent = "设备ID: " + getDeviceId();
+
+                try {
+                    const resp = await fetch("/api/auth/config");
+                    const cfg = await resp.json();
+
+                    if (cfg.password_mode === "none") {
+                        $("login_subtitle").textContent = "无密码模式，可直接进入";
+                        $("login_admin_btn").textContent = "以管理员身份进入";
+                        $("login_observer_btn").style.display = cfg.observer_enabled ? "block" : "none";
+                    } else {
+                        $("login_subtitle").textContent = "请选择身份进入";
+                        $("login_admin_btn").textContent = "管理员登录";
+                        $("login_observer_btn").style.display = cfg.observer_enabled ? "block" : "none";
+                    }
+                } catch (err) {
+                    showError("认证服务不可用，请刷新页面重试");
+                }
+            }
+
+            $("login_admin_btn").addEventListener("click", () => login("admin"));
+            $("login_observer_btn").addEventListener("click", () => login("observer"));
+            $("login_password").addEventListener("keydown", (ev) => {
+                if (ev.key === "Enter") login("admin");
+            });
+
+            init();
+            loadSavedPassword();
+        })();
+    </script>
+</body>
+</html>

@@ -14,7 +14,7 @@
     "New connection has been rejected with reason: ": "新连接被拒绝，原因如下：",
     "New connection has been rejected": "新连接已被拒绝",
     "Credentials are required": "需要凭证",
-    "noVNC encountered an error:": "noVNC 遇到一个错误：",
+    "WebVNC encountered an error:": "WebVNC 遇到一个错误：",
     "Hide/Show the control bar": "显示/隐藏控制栏",
     "Drag": "拖动",
     "Move/Drag viewport": "移动/拖动窗口",

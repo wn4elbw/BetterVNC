@@ -1,5 +1,5 @@
 /*
- * noVNC: HTML5 VNC client
+ * webvnc: HTML5 VNC client
  * Copyright (C) 2018 The noVNC authors
  * Licensed under MPL 2.0 (see LICENSE.txt)
  *
@@ -54,7 +54,7 @@ function _captureProxy(e) {
 
 // Follow cursor style of target element
 function _capturedElemChanged() {
-    const proxyElem = document.getElementById("noVNC_mouse_capture_elem");
+    const proxyElem = document.getElementById("webvnc_mouse_capture_elem");
     proxyElem.style.cursor = window.getComputedStyle(document.captureElement).cursor;
 }
 
@@ -70,11 +70,11 @@ export function setCapture(target) {
         // called multiple times without coordination
         releaseCapture();
 
-        let proxyElem = document.getElementById("noVNC_mouse_capture_elem");
+        let proxyElem = document.getElementById("webvnc_mouse_capture_elem");
 
         if (proxyElem === null) {
             proxyElem = document.createElement("div");
-            proxyElem.id = "noVNC_mouse_capture_elem";
+            proxyElem.id = "webvnc_mouse_capture_elem";
             proxyElem.style.position = "fixed";
             proxyElem.style.top = "0px";
             proxyElem.style.left = "0px";
@@ -129,7 +129,7 @@ export function releaseCapture() {
 
         _captureObserver.disconnect();
 
-        const proxyElem = document.getElementById("noVNC_mouse_capture_elem");
+        const proxyElem = document.getElementById("webvnc_mouse_capture_elem");
         proxyElem.style.display = "none";
 
         window.removeEventListener('mousemove', _captureProxy);

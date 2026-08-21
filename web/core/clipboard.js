@@ -1,5 +1,5 @@
 /*
- * noVNC: HTML5 VNC client
+ * webvnc: HTML5 VNC client
  * Copyright (c) 2025 The noVNC authors
  * Licensed under MPL 2.0 or any later version (see LICENSE.txt)
  */

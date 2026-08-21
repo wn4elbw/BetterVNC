@@ -13,7 +13,7 @@
     "New connection has been rejected with reason: ": "Η νέα σύνδεση απορρίφθηκε διότι: ",
     "New connection has been rejected": "Η νέα σύνδεση απορρίφθηκε ",
     "Credentials are required": "Απαιτούνται διαπιστευτήρια",
-    "noVNC encountered an error:": "το noVNC αντιμετώπισε ένα σφάλμα:",
+    "WebVNC encountered an error:": "το WebVNC αντιμετώπισε ένα σφάλμα:",
     "Hide/Show the control bar": "Απόκρυψη/Εμφάνιση γραμμής ελέγχου",
     "Drag": "Σύρσιμο",
     "Move/Drag Viewport": "Μετακίνηση/Σύρσιμο Θεατού πεδίου",
